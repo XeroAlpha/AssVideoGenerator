@@ -1,3 +1,4 @@
 {
-	"extends": "@remotion"
+  "extends": ["@remotion"],
+  "parser": "@typescript-eslint/parser"
 }

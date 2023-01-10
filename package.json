@@ -1,27 +1,36 @@
 {
-  "name": "AssVideoGenerator",
+  "name": "ass-video-generator",
   "version": "1.0.0",
   "description": "My Remotion video",
   "scripts": {
-    "start": "remotion preview src/index.tsx",
-    "build": "remotion render src/index.tsx HelloWorld out/video.mp4",
+    "preview": "ts-node src/main.ts preview",
+    "render": "ts-node src/main.ts render",
     "upgrade": "remotion upgrade",
-    "test": "eslint src --ext ts,tsx,js,jsx && tsc"
+    "test": "eslint src --ext ts,tsx,js,jsx && tsc",
+    "style": "prettier --write ."
   },
   "repository": {},
   "license": "UNLICENSED",
   "devDependencies": {
+    "@types/ffprobe": "^1.1.3",
     "@types/react": "^18.0.6",
-    "@types/web": "^0.0.61"
+    "@types/send": "^0.17.1",
+    "@types/web": "^0.0.61",
+    "@typescript-eslint/eslint-plugin": "^5.48.1",
+    "@typescript-eslint/parser": "^5.48.1",
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
-    "@remotion/cli": "3.2.21",
-    "@remotion/eslint-config": "3.2.21",
-    "eslint": "^8.14.0",
+    "@remotion/cli": "3.3.28",
+    "@remotion/eslint-config": "3.3.28",
+    "ass-compiler": "^0.1.4",
+    "eslint": "^8.31.0",
+    "ffprobe": "^1.1.2",
     "prettier": "^2.2.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "remotion": "3.2.21",
-    "typescript": "^4.6.3"
+    "remotion": "3.3.28",
+    "send": "^0.18.0",
+    "typescript": "^4.9.4"
   }
 }
