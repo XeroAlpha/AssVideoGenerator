@@ -1,11 +1,10 @@
-import { Freeze, Video } from 'remotion';
+import { Img } from 'remotion';
 import { CSSProperties } from 'react';
 import { AbsoluteFill } from 'remotion';
 
 export const VideoIntro: React.FC<{
-  video: string;
-  videoDuration: number;
-}> = ({ video, videoDuration }) => {
+  videoEnd: string;
+}> = ({ videoEnd }) => {
   const videoStyle: CSSProperties = {
     position: 'absolute',
     top: 0,
@@ -17,9 +16,7 @@ export const VideoIntro: React.FC<{
   };
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
-      <Freeze frame={0}>
-        <Video src={video} startFrom={videoDuration} style={videoStyle} />
-      </Freeze>
+        <Img src={videoEnd} style={videoStyle} />
     </AbsoluteFill>
   );
 };

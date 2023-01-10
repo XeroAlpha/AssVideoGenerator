@@ -23,13 +23,12 @@ interface SeriesMeta {
 
 export const EpisodePreview: React.FC<InputProps> = (meta) => {
   const series: SeriesMeta[] = [];
-  if (meta.video) {
+  if (meta.videoEnd) {
     series.push({
       name: 'videoIntro',
       el: () => (
         <VideoIntro
-          video={meta.video ?? ''}
-          videoDuration={meta.videoDurationInFrames}
+          videoEnd={meta.videoEnd ?? ''}
         />
       ),
       durationInFrames: 0,

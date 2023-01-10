@@ -18,6 +18,7 @@ export interface InputProps {
   resolution: { width: number; height: number };
   video?: string;
 
+  videoEnd?: string;
   images: string[];
   title: string;
   description: string;
@@ -32,6 +33,7 @@ export interface InputProps {
     volume: number;
   };
 
+  videoDuration: number;
   videoDurationInFrames: number;
   imageDurationInFrames: number;
   intervalInFrames: number;
@@ -41,17 +43,25 @@ export interface InputProps {
 }
 
 function expandList(listPattern: string): string[] {
-  const match = /\$\{(\d)+-(\d)+\}/.exec(listPattern);
+  const match = /\$\{([\d-,]+)\}/.exec(listPattern);
   if (match) {
-    const start = parseInt(match[1], 10);
-    const end = parseInt(match[2], 10);
-    const step = start > end ? -1 : 1;
+    const parts = match[1].split(',');
     const prefix = listPattern.slice(0, match.index);
     const suffix = listPattern.slice(match.index + match[0].length);
-    const result = [];
-    for (let i = start; i <= end; i += step) {
-      result.push(`${prefix}${i}${suffix}`);
-    }
+    const result = [] as string[];
+    parts.forEach((e) => {
+      const dashPos = e.indexOf('-');
+      if (dashPos >= 0) {
+        const start = parseInt(e.slice(0, dashPos), 10);
+        const end = parseInt(e.slice(dashPos + 1), 10);
+        const step = start > end ? -1 : 1;
+        for (let i = start; i <= end; i += step) {
+          result.push(`${prefix}${i}${suffix}`);
+        }
+      } else {
+        result.push(`${prefix}${e}${suffix}`);
+      }
+    });
     return result;
   }
   return [listPattern];
@@ -61,6 +71,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   let fps = 30;
   let resolution = { width: 1920, height: 1080 };
   let videoDuration = 0;
+  let videoEnd;
   if (meta.videoFile) {
     const mediaInfo = await ffprobe(meta.videoFile);
     fps = getFPS(mediaInfo);
@@ -69,6 +80,19 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     if (resolutionNullable) {
       resolution = resolutionNullable;
     }
+    const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
+    const videoEndShot = resolvePath(cx.tmpDir, 'end.png');
+    await ffmpeg([
+      '-i',
+      meta.videoFile,
+      '-ss', String(videoDuration - 1 / fps),
+      '-frames:v', '1',
+      '-filter_complex',
+      `ass='${subtitleInTmpDir.replace(/[\\:]/g, '\\$&')}'`,
+      '-y',
+      videoEndShot,
+    ]);
+    videoEnd = cx.server.getFileUrl('video_end', videoEndShot);
   }
   const images = expandList(meta.templateOptions.images || '');
   const background =
@@ -82,7 +106,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     inputProps: {
       fps,
       resolution,
-      video: meta.videoFile && cx.server.getFileUrl('video', meta.videoFile),
+      videoEnd,
       images: images.map((pathOrUrl, i) =>
         cx.server.toUrlIfNecessary(`image_${i}`, pathOrUrl)
       ),
@@ -98,6 +122,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
         start: parseTimestamp(meta.templateOptions['bgm.start'] || ''),
         volume: parseFloat(meta.templateOptions['bgm.volume'] || ''),
       },
+      videoDuration,
       videoDurationInFrames: Math.floor(fps * videoDuration) - 1,
       imageDurationInFrames: Math.floor(
         fps * (images.length * interval - transition)
@@ -118,10 +143,10 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
 export const EpisodePreviewTemplate: RenderTemplate = {
   preview: getRenderOptions,
   async render(cx, meta) {
-    const renderOptions = await getRenderOptions(cx, meta);
     const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
     const appendVideoFile = resolvePath(cx.tmpDir, 'append.mp4');
     const outputFile = withExtension(meta.subtitleFile, '.subtitle.mp4');
+    const renderOptions = await getRenderOptions(cx, meta);
     await render(cx, renderOptions, appendVideoFile);
     if (meta.videoFile) {
       await ffmpeg([
