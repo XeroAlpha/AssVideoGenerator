@@ -15,7 +15,14 @@ export async function render(
   const bundled = await bundle(entrypoint, () => undefined, {
     enableCaching: false,
   });
-  const compositions = await getCompositions(bundled, { inputProps });
+  const sharedConfig = {
+    browserExecutable:
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      chromiumOptions: {
+        headless: true,
+      },
+  };
+  const compositions = await getCompositions(bundled, { inputProps, ...sharedConfig });
   const composition = compositions.find((c) => c.id === compositionId);
   if (!composition) {
     throw new Error(`No video called ${compositionId}`);
@@ -34,12 +41,8 @@ export async function render(
     inputProps,
     composition,
     imageFormat: 'jpeg',
-    browserExecutable:
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     dumpBrowserLogs: true,
-    chromiumOptions: {
-      headless: true,
-    },
+    ...sharedConfig,
   });
   console.log(`Encoding video...`);
   await stitchFramesToVideo({
