@@ -1,11 +1,11 @@
 import { Img } from 'remotion';
-import { CSSProperties } from 'react';
 import { AbsoluteFill } from 'remotion';
+import { style } from '../utils/style';
 
 export const VideoIntro: React.FC<{
   videoEnd: string;
 }> = ({ videoEnd }) => {
-  const videoStyle: CSSProperties = {
+  const videoStyle = style({
     position: 'absolute',
     top: 0,
     left: 0,
@@ -13,7 +13,7 @@ export const VideoIntro: React.FC<{
     height: '100%',
     objectFit: 'contain',
     backgroundColor: 'black',
-  };
+  });
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
         <Img src={videoEnd} style={videoStyle} />

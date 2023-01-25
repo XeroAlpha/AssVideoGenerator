@@ -14,6 +14,7 @@ export class StaticServer {
       const filePath = this.fileMap.get(url.pathname);
       if (filePath) {
         try {
+          res.setHeader('Access-Control-Allow-Origin', '*');
           send(req, filePath).pipe(res);
           return;
         } catch (err) {

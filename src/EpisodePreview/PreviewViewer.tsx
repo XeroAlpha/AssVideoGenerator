@@ -1,5 +1,5 @@
-import { CSSProperties } from 'react';
 import { Img, interpolate, AbsoluteFill, Easing } from 'remotion';
+import { style } from '../utils/style';
 
 export const PreviewViewer: React.FC<{
   frame: number;
@@ -33,7 +33,7 @@ export const PreviewViewer: React.FC<{
     easing: Easing.bezier(0, 0, 0.3, 1),
   });
 
-  const imgBaseStyle: CSSProperties = {
+  const imgBaseStyle = style({
     position: 'absolute',
     top: 0,
     left: 0,
@@ -42,13 +42,12 @@ export const PreviewViewer: React.FC<{
     objectFit: 'contain',
     backgroundColor: 'black',
     zIndex: 0,
-  };
-  const firstImgStyle: CSSProperties = {
-    ...imgBaseStyle,
+  });
+  const firstImgStyle = style(imgBaseStyle, {
     zIndex: 100,
     opacity: 1 - transitionProgress,
-  };
-  const indexStyle: CSSProperties = {
+  });
+  const indexStyle = style({
     position: 'absolute',
     right: '50px',
     bottom: '50px',
@@ -58,27 +57,26 @@ export const PreviewViewer: React.FC<{
     fontWeight: 900,
     color: 'rgba(255, 255, 255, .4)',
     opacity: fadeIn,
-  };
-  const descriptionStyle: CSSProperties = {
+  });
+  const descriptionStyle = style({
     position: 'absolute',
     left: 0,
     bottom: 0,
     padding: '60px',
     zIndex: 200,
     fontSize: '60px',
-    fontFamily: '思源宋体',
+    fontFamily: '"方正FW轻吟体 简"',
     wordBreak: 'break-all',
     color: 'white',
-    textShadow:
-      '1px 0px 10px black, -1px 0px 10px black, 0px 1px 10px black, 0px -1px 10px black',
+    textShadow: Array(2).fill('0px 0px 10px black').join(','),
     transform: `translateY(${descriptionMoveIn * 1.2}%)`,
-  };
-  const titleStyle: CSSProperties = {
+  });
+  const titleStyle = style({
     margin: 0,
     marginTop: '15px',
     fontWeight: 700,
     whiteSpace: 'pre-line',
-  };
+  });
   return (
     <AbsoluteFill>
       <Img src={firstImage} style={firstImgStyle} />

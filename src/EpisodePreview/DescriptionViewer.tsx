@@ -1,5 +1,5 @@
-import { CSSProperties } from 'react';
 import { AbsoluteFill, Img } from 'remotion';
+import { style } from '../utils/style';
 
 export const DescriptionViewer: React.FC<{
   title: string;
@@ -7,40 +7,38 @@ export const DescriptionViewer: React.FC<{
   background?: string;
   staff?: string;
 }> = ({ title, description, background, staff }) => {
-  const imageStyle: CSSProperties = {
+  const imageStyle = style({
     objectFit: 'contain',
-    filter: 'blur(30px)',
-  };
-  const barStyle: CSSProperties = {
+    filter: 'blur(5px)',
+  });
+  const barStyle = style({
     width: '60%',
     height: 'auto',
     color: 'white',
-    fontFamily: '思源宋体',
+    fontFamily: '"方正FW轻吟体 简"',
     fontWeight: 700,
     zIndex: 100,
-    textShadow:
-      '1px 0px 3px black, -1px 0px 3px black, 0px 1px 3px black, 0px -1px 3px black',
+    textShadow: Array(2).fill('0px 0px 5px black').join(','),
     wordBreak: 'break-all',
-  };
-  const titleStyle: CSSProperties = {
+  });
+  const titleStyle = style({
     margin: 0,
     marginTop: '0px',
     marginBottom: '15px',
-    fontSize: '50px',
+    fontSize: '60px',
     fontWeight: 900,
     whiteSpace: 'pre-line',
-  };
-  const descriptionParaStyle: CSSProperties = {
+  });
+  const descriptionParaStyle = style({
     margin: 0,
     marginTop: '0px',
     marginBottom: '15px',
     fontSize: '45px',
-  };
-  const staffParaStyle: CSSProperties = {
+  });
+  const staffParaStyle = style({
     margin: 0,
     fontSize: '40px',
-    fontWeight: 500,
-  };
+  });
   const descriptionElements = description.split('\n').map((line, index) => (
     <p key={index} style={descriptionParaStyle}>
       {line}
