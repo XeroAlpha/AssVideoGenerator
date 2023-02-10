@@ -3,7 +3,7 @@ import { join as joinPath, resolve as resolvePath } from 'path';
 import * as os from 'os';
 import { setTimeout as delayedValue } from 'timers/promises';
 import { extractAssMeta } from './utils/parseAss';
-import { burnSubtitle } from './jobs/burnSubtitle';
+import { burnSubtitle, mapToArgs } from './jobs/burnSubtitle';
 import { withExtension } from './utils/fileExtensions';
 import { StaticServer } from './utils/staticServer';
 import { startPreview } from './jobs/preview';
@@ -51,19 +51,14 @@ const Templates: Record<string, RenderTemplate> = {
         video: meta.videoFile,
         subtitle: meta.subtitleFile,
         output: withExtension(meta.subtitleFile, '.subtitle.mp4'),
-      });
-    },
-  },
-  'use-fps': {
-    render(cx, meta) {
-      if (!meta.videoFile) throw new Error('Video is not provided');
-      return burnSubtitle(cx, {
-        video: meta.videoFile,
-        subtitle: meta.subtitleFile,
-        output: withExtension(meta.subtitleFile, '.subtitle.mp4'),
         fps: meta.templateOptions.fps
           ? parseInt(meta.templateOptions.fps, 10)
           : undefined,
+        supersampling: meta.templateOptions.supersampling
+          ? parseInt(meta.templateOptions.supersampling, 10)
+          : undefined,
+        inputArgs: mapToArgs(meta.templateOptions, 'iargs:'),
+        outputArgs: mapToArgs(meta.templateOptions, 'args:')
       });
     },
   },
@@ -75,6 +70,7 @@ const Templates: Record<string, RenderTemplate> = {
       const defaultOutput = withExtension(meta.subtitleFile, '.subtitle.mp4');
       for (const profile of profiles) {
         const fps = meta.templateOptions[`${profile}:fps`];
+        const supersampling = meta.templateOptions[`${profile}:supersampling`];
         const source = resolvePath(
           meta.subtitleFile,
           '..',
@@ -91,6 +87,9 @@ const Templates: Record<string, RenderTemplate> = {
             subtitle: meta.subtitleFile,
             output,
             fps: fps ? parseInt(fps, 10) : undefined,
+            supersampling: supersampling ? parseInt(supersampling, 10) : undefined,
+            inputArgs: mapToArgs(meta.templateOptions, `${profile}:iargs:`),
+            outputArgs: mapToArgs(meta.templateOptions, `${profile}:args:`)
           });
         }
       }
