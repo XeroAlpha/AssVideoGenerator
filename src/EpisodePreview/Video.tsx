@@ -9,7 +9,7 @@ export const inputPropsSchema = z.object({
     width: z.number().positive(),
     height: z.number().positive(),
   }),
-  videoEnd: z.string().optional(),
+  videoEnd: z.boolean().optional(),
   images: z.array(z.string()),
   title: z.string(),
   description: z.string(),

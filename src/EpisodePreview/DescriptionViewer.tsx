@@ -1,4 +1,5 @@
 import { AbsoluteFill, Img } from 'remotion';
+import { toUrlIfNecessary } from '../utils/staticServerApi';
 import { style, useStyledClass } from '../utils/style';
 
 const Styles = {
@@ -79,7 +80,7 @@ export const DescriptionViewer: React.FC<{
   return (
     <>
       <AbsoluteFill {...styled('black')}>
-        {background ? <Img src={background} {...styled('image')} /> : null}
+        {background ? <Img src={toUrlIfNecessary(background)} {...styled('image')} /> : null}
       </AbsoluteFill>
       <AbsoluteFill {...styled('center', 'scaleHelper')}>
         <div {...styled('bar')}>

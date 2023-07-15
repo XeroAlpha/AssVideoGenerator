@@ -13,6 +13,7 @@ export async function startPreview(
       resolvePath(__dirname, 'preview-cli.js'),
       [
         'studio',
+        '--log', 'verbose',
         relativePath(resolvePath(__dirname, '..', '..'), options.entryPoint),
       ],
       {

@@ -1,4 +1,5 @@
 import { Img, interpolate, AbsoluteFill, Easing } from 'remotion';
+import { toUrlIfNecessary } from '../utils/staticServerApi';
 import { style } from '../utils/style';
 
 export const PreviewViewer: React.FC<{
@@ -89,8 +90,8 @@ export const PreviewViewer: React.FC<{
   });
   return (
     <AbsoluteFill>
-      <Img src={firstImage} style={firstImgStyle} />
-      <Img src={secondImage} style={imgBaseStyle} />
+      <Img src={toUrlIfNecessary(firstImage)} style={firstImgStyle} />
+      <Img src={toUrlIfNecessary(secondImage)} style={imgBaseStyle} />
       <div style={scaleStyle}>
         <div style={indexStyle}>
           先行图 {roundIndex + 1} / {images.length}

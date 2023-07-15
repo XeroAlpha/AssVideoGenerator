@@ -69,13 +69,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   const fps = getFPS(mediaInfo);
   const resolution = getResolution(mediaInfo);
   const kvPathOrUrl = meta.templateOptions.kv;
-  const kvFile =
-    kvPathOrUrl &&
-    !kvPathOrUrl.startsWith('http') &&
-    resolvePath(meta.subtitleFile, '..', kvPathOrUrl);
-  const highlightVideo = meta.templateOptions.highlightVideo
-    ? resolvePath(meta.subtitleFile, '..', meta.templateOptions.highlightVideo)
-    : meta.videoFile;
+  const highlightVideo = meta.templateOptions.highlightVideo || meta.videoFile;
   const pages: Page[] = parsePageDefinition(
     meta.templateOptions.pages || '',
     meta.templateOptions
@@ -97,12 +91,12 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     entryPoint: resolvePath(__dirname, './Video.tsx'),
     compositionId: 'BangumiPV',
     inputProps: {
-      video: cx.server.getFileUrl('video', highlightVideo),
+      video: highlightVideo,
       fps: isFinite(customFPS) ? customFPS : fps,
       duration: pages[pages.length - 1].exitTime,
       resolution: resolution || { width: 1920, height: 1080 },
       highlightTime: parseTimestamp(meta.templateOptions.highlight || '0'),
-      kv: kvFile ? cx.server.getFileUrl('bangumi-kv', kvFile) : kvPathOrUrl,
+      kv: kvPathOrUrl,
       title: meta.templateOptions.title,
       titleOriginal: meta.templateOptions.title_orig,
       extraStyles,

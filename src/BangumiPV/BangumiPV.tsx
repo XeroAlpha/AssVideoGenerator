@@ -12,6 +12,7 @@ import { InputProps } from './Video';
 import { interpolateClamp } from '../utils/interpolate';
 import { paragraphToDOM } from '../utils/paragraph';
 import { style } from '../utils/style';
+import { toUrlIfNecessary } from '../utils/staticServerApi';
 
 const elasticEasing = Easing.elastic();
 
@@ -313,7 +314,7 @@ export const BangumiPV: React.FC<InputProps> = ({
           <Video
             style={extraStyles.backgroundVideo}
             volume={(f) => videoAnimationFunc(f + 0.7 * fps)}
-            src={video}
+            src={toUrlIfNecessary(video)}
             startFrom={Math.floor(highlightTime * fps)}
           />
         </Sequence>
@@ -333,7 +334,7 @@ export const BangumiPV: React.FC<InputProps> = ({
             ) : null}
           </div>
           <div style={kvWrapperStyle}>
-            <Img src={kv} style={kvStyle} />
+            <Img src={toUrlIfNecessary(kv)} style={kvStyle} />
           </div>
         </div>
         <div style={rightBarStyle}>{pagesDOM}</div>

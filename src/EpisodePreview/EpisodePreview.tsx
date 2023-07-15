@@ -9,6 +9,7 @@ import { calculateFrameCounts, InputProps } from './Video';
 import { DescriptionViewer } from './DescriptionViewer';
 import { PreviewViewer } from './PreviewViewer';
 import { VideoIntro } from './VideoIntro';
+import { getUrl, toUrlIfNecessary } from '../utils/staticServerApi';
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -31,7 +32,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
   if (meta.videoEnd) {
     series.push({
       name: 'videoIntro',
-      el: () => <VideoIntro videoEnd={meta.videoEnd ?? ''} />,
+      el: () => <VideoIntro videoEnd={getUrl('video_end')} />,
       durationInFrames: 0,
     });
   }
@@ -135,7 +136,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       {meta.bgm ? (
         <Sequence name="BGM">
           <Audio
-            src={meta.bgm.src}
+            src={toUrlIfNecessary(meta.bgm.src)}
             startFrom={Math.floor(meta.bgm.start * meta.fps)}
             volume={() => fadeProgress * (meta.bgm?.volume ?? 1)}
           />

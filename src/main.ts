@@ -113,6 +113,7 @@ async function main(action: string, assPath: string) {
   const template = Templates[assMeta.template] || Templates.default;
   const server = new StaticServer();
   const cx: RenderContext = { tmpDir, server, mode: 'render' };
+  server.setRootDir(resolvePath(assPath, '..'));
   if (action === 'preview' && template.preview) {
     let shouldOpenBrowser = true;
     cx.mode = 'preview';

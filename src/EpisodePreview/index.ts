@@ -43,7 +43,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   let fps = 30;
   let resolution = { width: 1920, height: 1080 };
   let videoDuration = 0;
-  let videoEnd;
+  let videoEnd = false;
   if (meta.videoFile) {
     const mediaInfo = await ffprobe(meta.videoFile);
     fps = getFPS(mediaInfo);
@@ -68,7 +68,8 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       '-y',
       videoEndShot,
     ]);
-    videoEnd = cx.server.getFileUrl('video_end', videoEndShot);
+    cx.server.setFile('video_end', videoEndShot);
+    videoEnd = true;
   }
   const images = expandList(meta.templateOptions.images || '');
   const background =
@@ -83,18 +84,16 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       fps,
       resolution,
       videoEnd,
-      images: images.map((pathOrUrl, i) =>
-        cx.server.toUrlIfNecessary(`image_${i}`, pathOrUrl)
-      ),
+      images,
       title: meta.templateOptions.title,
       description: meta.templateOptions.description,
       staff: meta.templateOptions.staff,
-      background: cx.server.toUrlIfNecessary('background', background),
+      background,
       interval,
       textDuration,
       transition,
       bgm: meta.templateOptions.bgm && {
-        src: cx.server.getFileUrl('bgm', meta.templateOptions.bgm),
+        src: meta.templateOptions.bgm,
         start: parseTimestamp(meta.templateOptions['bgm.start'] || ''),
         volume: parseFloat(meta.templateOptions['bgm.volume'] || ''),
       },
