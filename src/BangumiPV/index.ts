@@ -5,36 +5,8 @@ import { render } from '../jobs/render';
 import { RenderContext, RenderTemplate, AssMeta } from '../main';
 import { withExtension } from '../utils/fileExtensions';
 import { parseDuration, parseTimestamp } from '../utils/duration';
-
-interface Section {
-  name: string;
-  content: string;
-  style: string;
-  styleOptions: Record<string, string | undefined>;
-}
-
-interface Page {
-  enterTime: number;
-  exitTime: number;
-  effect: string;
-  effectOptions: Record<string, string | undefined>;
-  sections: Section[];
-}
-
-export interface InputProps {
-  fps: number;
-  duration: number;
-  resolution: { width: number; height: number };
-  video: string;
-  highlightTime: number;
-
-  kv: string;
-  title: string;
-  titleOriginal?: string;
-  extraStyles: Record<string, Record<string, string | undefined> | undefined>;
-
-  pages: Page[];
-}
+import { mapToArgs } from '../jobs/burnSubtitle';
+import { InputProps, Page } from './Video';
 
 function parseEqualSeperatedMap(strs: string[]) {
   const map: Record<string, string | undefined> = {};
@@ -101,6 +73,9 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     kvPathOrUrl &&
     !kvPathOrUrl.startsWith('http') &&
     resolvePath(meta.subtitleFile, '..', kvPathOrUrl);
+  const highlightVideo = meta.templateOptions.highlightVideo
+    ? resolvePath(meta.subtitleFile, '..', meta.templateOptions.highlightVideo)
+    : meta.videoFile;
   const pages: Page[] = parsePageDefinition(
     meta.templateOptions.pages || '',
     meta.templateOptions
@@ -119,10 +94,10 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     throw new Error('Should at least have one page');
   }
   return {
-    entrypoint: resolvePath(__dirname, './Video.tsx'),
+    entryPoint: resolvePath(__dirname, './Video.tsx'),
     compositionId: 'BangumiPV',
     inputProps: {
-      video: cx.server.getFileUrl('video', meta.videoFile),
+      video: cx.server.getFileUrl('video', highlightVideo),
       fps: isFinite(customFPS) ? customFPS : fps,
       duration: pages[pages.length - 1].exitTime,
       resolution: resolution || { width: 1920, height: 1080 },
@@ -146,8 +121,11 @@ export const BangumiPVTemplate: RenderTemplate = {
     const appendVideoFile = resolvePath(cx.tmpDir, 'append.mp4');
     await render(cx, renderOptions, appendVideoFile);
     await ffmpeg([
+      ...mapToArgs(meta.templateOptions, 'vargs:'),
       '-i',
       meta.videoFile,
+      '-r',
+      String(renderOptions.inputProps.fps),
       '-i',
       appendVideoFile,
       '-filter_complex',
@@ -159,6 +137,7 @@ export const BangumiPVTemplate: RenderTemplate = {
         `[ph2v] [0:a] [1:v] [1:a] concat='n=2:v=1:a=1' [ph3v] [ph3a]`,
       ].join('; '),
       '-y',
+      ...mapToArgs(meta.templateOptions, 'args:'),
       '-map',
       '[ph3v]',
       '-map',

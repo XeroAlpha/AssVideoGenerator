@@ -12,16 +12,16 @@ export async function startPreview(
     fork(
       resolvePath(__dirname, 'preview-cli.js'),
       [
-        'preview',
-        '--props',
-        JSON.stringify(options.inputProps),
-        relativePath(resolvePath(__dirname, '..', '..'), options.entrypoint),
+        'studio',
+        relativePath(resolvePath(__dirname, '..', '..'), options.entryPoint),
       ],
       {
         stdio: 'inherit',
         signal: cx.signal,
         env: {
           BROWSER: openBrowser ? undefined : 'none',
+          REMOTION_INPUT_PROPS: JSON.stringify(options.inputProps),
+          ...cx.server.injectEnv(),
         },
       }
     )

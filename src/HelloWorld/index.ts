@@ -5,7 +5,7 @@ import { withExtension } from '../utils/fileExtensions';
 
 function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   return {
-    entrypoint: resolvePath(__dirname, 'Video.tsx'),
+    entryPoint: resolvePath(__dirname, 'Video.tsx'),
     compositionId: 'HelloWorld',
     inputProps: {
       titleText: meta.templateOptions.title,

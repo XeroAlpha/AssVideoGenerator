@@ -12,35 +12,7 @@ import { render } from '../jobs/render';
 import { RenderContext, RenderTemplate, AssMeta } from '../main';
 import { withExtension } from '../utils/fileExtensions';
 import { parseDuration, parseTimestamp } from '../utils/duration';
-
-export interface InputProps {
-  fps: number;
-  resolution: { width: number; height: number };
-  video?: string;
-
-  videoEnd?: string;
-  images: string[];
-  title: string;
-  description: string;
-  staff?: string;
-  background?: string;
-  interval: number;
-  textDuration: number;
-  transition: number;
-  bgm?: {
-    src: string;
-    start: number;
-    volume: number;
-  };
-
-  videoDuration: number;
-  videoDurationInFrames: number;
-  imageDurationInFrames: number;
-  intervalInFrames: number;
-  textDurationInFrames: number;
-  transitionInFrames: number;
-  durationInFrames: number;
-}
+import { InputProps } from './Video';
 
 function expandList(listPattern: string): string[] {
   const match = /\$\{([\d-,]+)\}/.exec(listPattern);
@@ -85,8 +57,12 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     await ffmpeg([
       '-i',
       meta.videoFile,
-      '-ss', String(videoDuration - 1 / fps),
-      '-frames:v', '1',
+      '-ss',
+      String(videoDuration - 1 / fps),
+      '-update',
+      '1',
+      '-frames:v',
+      '1',
       '-filter_complex',
       `ass='${subtitleInTmpDir.replace(/[\\:]/g, '\\$&')}'`,
       '-y',
@@ -101,7 +77,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   const textDuration = parseDuration(meta.templateOptions.textDuration || '');
   const transition = parseDuration(meta.templateOptions.transition || '');
   return {
-    entrypoint: resolvePath(__dirname, './Video.tsx'),
+    entryPoint: resolvePath(__dirname, './Video.tsx'),
     compositionId: 'EpisodePreview',
     inputProps: {
       fps,
@@ -122,20 +98,6 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
         start: parseTimestamp(meta.templateOptions['bgm.start'] || ''),
         volume: parseFloat(meta.templateOptions['bgm.volume'] || ''),
       },
-      videoDuration,
-      videoDurationInFrames: Math.floor(fps * videoDuration) - 1,
-      imageDurationInFrames: Math.floor(
-        fps * (images.length * interval - transition)
-      ),
-      intervalInFrames: Math.floor(fps * interval),
-      textDurationInFrames: Math.floor(fps * textDuration),
-      transitionInFrames: Math.floor(fps * transition),
-      durationInFrames: Math.floor(
-        fps *
-          (images.length * interval +
-            textDuration +
-            transition * (videoDuration > 0 ? 2 : 1))
-      ),
     } as InputProps,
   };
 }
@@ -152,6 +114,8 @@ export const EpisodePreviewTemplate: RenderTemplate = {
       await ffmpeg([
         '-i',
         meta.videoFile,
+        '-r',
+        String(renderOptions.inputProps.fps),
         '-i',
         appendVideoFile,
         '-filter_complex',

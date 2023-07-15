@@ -1,57 +1,57 @@
 import { bundle } from '@remotion/bundler';
-import {
-  getCompositions,
-  renderFrames,
-  stitchFramesToVideo,
-} from '@remotion/renderer';
+import { selectComposition, renderMedia } from '@remotion/renderer';
 import { RenderContext, RenderOptions } from '../main';
 
 export async function render(
   cx: RenderContext,
   renderOptions: RenderOptions,
-  outFile: string
+  outputLocation: string
 ): Promise<void> {
-  const { entrypoint, compositionId, inputProps } = renderOptions;
-  const bundled = await bundle(entrypoint, () => undefined, {
-    enableCaching: false,
+  const { entryPoint, compositionId, inputProps } = renderOptions;
+  const tty = process.stdout;
+  const bundleLocation = await bundle({
+    entryPoint,
+    onProgress(percent) {
+      tty.write(`Progress: ${percent.toFixed(0)}% - bundling      \r`);
+    },
   });
-  const sharedConfig = {
+  const browserConfig = {
     browserExecutable:
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      chromiumOptions: {
-        headless: true,
-      },
-  };
-  const compositions = await getCompositions(bundled, { inputProps, ...sharedConfig });
-  const composition = compositions.find((c) => c.id === compositionId);
-  if (!composition) {
-    throw new Error(`No video called ${compositionId}`);
-  }
-  const { assetsInfo } = await renderFrames({
-    config: composition,
-    webpackBundle: bundled,
-    onStart: () => console.log('Rendering frames...'),
-    onFrameUpdate: (f) => {
-      if (f % 10 === 0) {
-        console.log(`Rendered frame ${f}/${composition.durationInFrames}`);
-      }
+    chromiumOptions: {
+      headless: true,
     },
-    parallelism: 1,
-    outputDir: cx.tmpDir,
+    envVariables: {
+      ...cx.server.injectEnv(),
+    },
+  };
+  const composition = await selectComposition({
+    serveUrl: bundleLocation,
+    id: compositionId,
     inputProps,
+    ...browserConfig,
+  });
+  const totalFrames = String(composition.durationInFrames);
+  await renderMedia({
     composition,
-    imageFormat: 'jpeg',
-    dumpBrowserLogs: true,
-    ...sharedConfig,
+    serveUrl: bundleLocation,
+    codec: 'h264',
+    outputLocation,
+    inputProps,
+    onProgress(p) {
+      const frames = p.renderedFrames || p.encodedFrames;
+      tty.write(
+        `Progress: ${String(frames).padStart(
+          totalFrames.length,
+          ' '
+        )} / ${totalFrames} (${(p.progress * 100).toFixed(0)}%) - ${
+          p.stitchStage
+        }      \r`
+      );
+    },
+    enforceAudioTrack: true,
+    logLevel: 'verbose',
+    ...browserConfig,
   });
-  console.log(`Encoding video...`);
-  await stitchFramesToVideo({
-    dir: cx.tmpDir,
-    force: true,
-    fps: composition.fps,
-    height: composition.height,
-    width: composition.width,
-    outputLocation: outFile,
-    assetsInfo,
-  });
+  tty.write(`\nFinished.`);
 }

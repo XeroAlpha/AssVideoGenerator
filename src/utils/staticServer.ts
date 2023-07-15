@@ -1,10 +1,16 @@
-import { createServer, Server } from 'http';
+import { createServer, Server, ServerResponse } from 'http';
 import { AddressInfo } from 'net';
-import { URL } from 'url';
+import { URL, URLSearchParams } from 'url';
 import send from 'send';
+
+type Handler = (
+  q: URLSearchParams,
+  res: ServerResponse
+) => Promise<void> | void;
 
 export class StaticServer {
   fileMap = new Map<string, string>();
+  handlerMap = new Map<string, Handler>();
   server: Server;
   baseUrl: string;
 
@@ -21,12 +27,24 @@ export class StaticServer {
           console.error(err);
         }
       }
+      const handler = this.handlerMap.get(url.pathname);
+      if (handler) {
+        try {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return handler(url.searchParams, res);
+        } catch (err) {
+          console.error(err);
+        }
+      }
       res.writeHead(404);
       res.end();
     });
     this.server.listen(port);
     const address = this.server.address() as AddressInfo;
-    this.baseUrl = `http://127.0.0.1:${address.port}/`;
+    this.baseUrl = `http://localhost:${address.port}/`;
+    this.setHandler('local', (q, res) => {
+      send(res.req, q.get('path') || '').pipe(res);
+    });
   }
 
   getFileUrl(id: string, realPath: string) {
@@ -40,6 +58,18 @@ export class StaticServer {
       return pathOrUrl;
     }
     return this.getFileUrl(id, pathOrUrl);
+  }
+
+  setHandler(id: string, handler: Handler) {
+    const url = new URL(`/${id}`, this.baseUrl);
+    this.handlerMap.set(url.pathname, handler);
+    return url.toString();
+  }
+
+  injectEnv() {
+    return {
+      REMOTION_STATIC_SERVER: this.baseUrl,
+    };
   }
 
   close() {

@@ -13,7 +13,10 @@ export interface BurnSubtitleOptions {
   outputArgs?: string[];
 }
 
-export function mapToArgs(map: Record<string, string | undefined>, prefix?: string): string[] {
+export function mapToArgs(
+  map: Record<string, string | undefined>,
+  prefix?: string
+): string[] {
   const args: string[] = [];
   const p = prefix ? prefix : '';
   Object.entries(map).forEach(([k, v]) => {
@@ -34,8 +37,12 @@ export async function burnSubtitle(
     videoFilters.unshift(`minterpolate='fps=${options.fps}:mi_mode=dup'`);
   }
   if (options.supersampling) {
-    videoFilters.unshift(`scale='w=iw*${options.supersampling}:h=ih*${options.supersampling}:flags=neighbor'`);
-    videoFilters.push(`scale='w=iw/${options.supersampling}:h=ih/${options.supersampling}:flags=bicubic'`);
+    videoFilters.unshift(
+      `scale='w=iw*${options.supersampling}:h=ih*${options.supersampling}:flags=neighbor'`
+    );
+    videoFilters.push(
+      `scale='w=iw/${options.supersampling}:h=ih/${options.supersampling}:flags=bicubic'`
+    );
   }
   await ffmpeg([
     ...(options.inputArgs || []),

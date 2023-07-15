@@ -5,7 +5,7 @@ import {
   Sequence,
   useCurrentFrame,
 } from 'remotion';
-import { InputProps } from './index';
+import { calculateFrameCounts, InputProps } from './Video';
 import { DescriptionViewer } from './DescriptionViewer';
 import { PreviewViewer } from './PreviewViewer';
 import { VideoIntro } from './VideoIntro';
@@ -23,14 +23,15 @@ interface SeriesMeta {
 
 export const EpisodePreview: React.FC<InputProps> = (meta) => {
   const series: SeriesMeta[] = [];
+  const scaleRatio = Math.min(
+    meta.resolution.width / 1920,
+    meta.resolution.height / 1080
+  );
+  const frameCountMeta = calculateFrameCounts(meta);
   if (meta.videoEnd) {
     series.push({
       name: 'videoIntro',
-      el: () => (
-        <VideoIntro
-          videoEnd={meta.videoEnd ?? ''}
-        />
-      ),
+      el: () => <VideoIntro videoEnd={meta.videoEnd ?? ''} />,
       durationInFrames: 0,
     });
   }
@@ -41,12 +42,13 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
         frame={frame}
         durationInFrames={durationInFrames}
         images={meta.images}
-        interval={meta.intervalInFrames}
-        transitionTime={meta.transitionInFrames}
+        interval={frameCountMeta.intervalInFrames}
+        transitionTime={frameCountMeta.transitionInFrames}
         title={meta.title}
+        scaleRatio={scaleRatio}
       />
     ),
-    durationInFrames: meta.imageDurationInFrames,
+    durationInFrames: frameCountMeta.imageDurationInFrames,
   });
   series.push(
     {
@@ -57,9 +59,10 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
           description={meta.description}
           staff={meta.staff}
           background={meta.background}
+          scaleRatio={scaleRatio}
         />
       ),
-      durationInFrames: meta.textDurationInFrames,
+      durationInFrames: frameCountMeta.textDurationInFrames,
     },
     {
       name: 'black',
@@ -67,7 +70,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       durationInFrames: 0,
     }
   );
-  const { transitionInFrames } = meta;
+  const { transitionInFrames } = frameCountMeta;
   let start = 0;
   for (const e of series) {
     e.startInFrames = start;
@@ -80,7 +83,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       extrapolateRight: 'clamp',
     }),
     interpolate(
-      frame - meta.durationInFrames,
+      frame - frameCountMeta.durationInFrames,
       [-transitionInFrames, 0],
       [1, 0],
       {
@@ -135,8 +138,6 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
             src={meta.bgm.src}
             startFrom={Math.floor(meta.bgm.start * meta.fps)}
             volume={() => fadeProgress * (meta.bgm?.volume ?? 1)}
-            onResize={null}
-            onResizeCapture={null}
           />
         </Sequence>
       ) : null}

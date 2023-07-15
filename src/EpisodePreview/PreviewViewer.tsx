@@ -8,7 +8,8 @@ export const PreviewViewer: React.FC<{
   interval: number;
   transitionTime: number;
   title: string;
-}> = ({ frame, images, interval, transitionTime, title }) => {
+  scaleRatio: number;
+}> = ({ frame, images, interval, transitionTime, title, scaleRatio }) => {
   const currentIndex = Math.min(
     Math.floor(frame / interval),
     images.length - 1
@@ -47,6 +48,15 @@ export const PreviewViewer: React.FC<{
     zIndex: 100,
     opacity: 1 - transitionProgress,
   });
+  const scaleStyle = style({
+    position: 'absolute',
+    left: '0px',
+    top: '0px',
+    width: `${100 / scaleRatio}%`,
+    height: `${100 / scaleRatio}%`,
+    zIndex: 200,
+    transform: `translate(-50%, -50%) scale(${scaleRatio}) translate(50%, 50%)`,
+  });
   const indexStyle = style({
     position: 'absolute',
     right: '50px',
@@ -65,7 +75,7 @@ export const PreviewViewer: React.FC<{
     padding: '60px',
     zIndex: 200,
     fontSize: '60px',
-    fontFamily: '"方正FW轻吟体 简"',
+    fontFamily: '"方正FW轻吟体 简", "方正准圆_GBK", "思源黑体"',
     wordBreak: 'break-all',
     color: 'white',
     textShadow: Array(2).fill('0px 0px 10px black').join(','),
@@ -81,11 +91,13 @@ export const PreviewViewer: React.FC<{
     <AbsoluteFill>
       <Img src={firstImage} style={firstImgStyle} />
       <Img src={secondImage} style={imgBaseStyle} />
-      <div style={indexStyle}>
-        先行图 {roundIndex + 1} / {images.length}
-      </div>
-      <div style={descriptionStyle}>
-        <p style={titleStyle}>{title}</p>
+      <div style={scaleStyle}>
+        <div style={indexStyle}>
+          先行图 {roundIndex + 1} / {images.length}
+        </div>
+        <div style={descriptionStyle}>
+          <p style={titleStyle}>{title}</p>
+        </div>
       </div>
     </AbsoluteFill>
   );

@@ -8,7 +8,7 @@ import {
   Video,
   Sequence,
 } from 'remotion';
-import type { InputProps } from './index';
+import { InputProps } from './Video';
 import { interpolateClamp } from '../utils/interpolate';
 import { paragraphToDOM } from '../utils/paragraph';
 import { style } from '../utils/style';

@@ -16,7 +16,7 @@ export const VideoIntro: React.FC<{
   });
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
-        <Img src={videoEnd} style={videoStyle} />
+      <Img src={videoEnd} style={videoStyle} />
     </AbsoluteFill>
   );
 };

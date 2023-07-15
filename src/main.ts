@@ -30,9 +30,9 @@ export interface RenderContext {
 }
 
 export interface RenderOptions {
-  entrypoint: string;
+  entryPoint: string;
   compositionId: string;
-  inputProps: object | null;
+  inputProps: Record<string, unknown>;
 }
 
 export interface RenderTemplate {
@@ -58,7 +58,7 @@ const Templates: Record<string, RenderTemplate> = {
           ? parseInt(meta.templateOptions.supersampling, 10)
           : undefined,
         inputArgs: mapToArgs(meta.templateOptions, 'iargs:'),
-        outputArgs: mapToArgs(meta.templateOptions, 'args:')
+        outputArgs: mapToArgs(meta.templateOptions, 'args:'),
       });
     },
   },
@@ -87,9 +87,11 @@ const Templates: Record<string, RenderTemplate> = {
             subtitle: meta.subtitleFile,
             output,
             fps: fps ? parseInt(fps, 10) : undefined,
-            supersampling: supersampling ? parseInt(supersampling, 10) : undefined,
+            supersampling: supersampling
+              ? parseInt(supersampling, 10)
+              : undefined,
             inputArgs: mapToArgs(meta.templateOptions, `${profile}:iargs:`),
-            outputArgs: mapToArgs(meta.templateOptions, `${profile}:args:`)
+            outputArgs: mapToArgs(meta.templateOptions, `${profile}:args:`),
           });
         }
       }
