@@ -23,6 +23,7 @@ const Styles = {
     zIndex: 100,
     textShadow: Array(2).fill('0px 0px 5px black').join(','),
     wordBreak: 'break-all',
+    overflowWrap: 'anywhere',
   }),
   title: style({
     margin: 0,
@@ -37,6 +38,8 @@ const Styles = {
     marginTop: '0px',
     marginBottom: '15px',
     fontSize: '45px',
+    wordBreak: 'break-all',
+    overflowWrap: 'anywhere',
   }),
   spacing: style({
     padding: '15px',

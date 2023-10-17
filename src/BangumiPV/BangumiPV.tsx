@@ -6,6 +6,7 @@ import {
   Easing,
   Img,
   Video,
+  Audio,
   Sequence,
 } from 'remotion';
 import { InputProps } from './Video';
@@ -313,6 +314,11 @@ export const BangumiPV: React.FC<InputProps> = ({
         <Sequence from={Math.floor(0.7 * fps)}>
           <Video
             style={extraStyles.backgroundVideo}
+            volume={0}
+            src={toUrlIfNecessary(video)}
+            startFrom={Math.floor(highlightTime * fps)}
+          />
+          <Audio
             volume={(f) => videoAnimationFunc(f + 0.7 * fps)}
             src={toUrlIfNecessary(video)}
             startFrom={Math.floor(highlightTime * fps)}

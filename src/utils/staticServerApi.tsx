@@ -1,4 +1,7 @@
 export function toUrlIfNecessary(urlOrPath: string) {
+  if (urlOrPath.startsWith('proxy@')) {
+    return getUrl('proxy', { url: urlOrPath.slice('proxy@'.length) });
+  }
   if (urlOrPath.startsWith('http')) {
     return urlOrPath;
   }

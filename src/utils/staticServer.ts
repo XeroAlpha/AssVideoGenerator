@@ -1,8 +1,13 @@
 import { createServer, Server, ServerResponse } from 'http';
 import { AddressInfo } from 'net';
 import { isAbsolute, resolve as resolvePath } from 'path';
+import { get as httpGet } from 'http';
+import { get as httpsGet } from 'https';
 import { URL, URLSearchParams } from 'url';
 import send from 'send';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
+const agent = process.env.https_proxy === undefined ? undefined : new HttpsProxyAgent(process.env.https_proxy);
 
 type Handler = (
   q: URLSearchParams,
@@ -46,6 +51,19 @@ export class StaticServer {
     this.baseUrl = `http://localhost:${address.port}/`;
     this.setHandler('local', (q, res) => {
       this.sendFile(res, q.get('path') || '');
+    });
+    this.setHandler('proxy', (q, res) => {
+      const url = q.get('url');
+      if (url) {
+        const get = url.startsWith('https:') ? httpsGet : httpGet;
+        const proxyReq = get(url, { agent }, (proxyRes) => {
+          proxyRes.pipe(res, { end: true });
+        });
+        res.req.pipe(proxyReq, { end: true });
+        return;
+      }
+      res.writeHead(400);
+      res.end();
     });
   }
 
