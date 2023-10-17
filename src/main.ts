@@ -6,7 +6,7 @@ import { extractAssMeta } from './utils/parseAss';
 import { burnSubtitle, mapToArgs } from './jobs/burnSubtitle';
 import { withExtension } from './utils/fileExtensions';
 import { StaticServer } from './utils/staticServer';
-import { startPreview } from './jobs/preview';
+import { Previewer, startPreviewer } from './jobs/preview';
 import { HelloWorldTemplate } from './HelloWorld';
 import { BangumiPVTemplate } from './BangumiPV';
 import { EpisodePreviewTemplate } from './EpisodePreview';
@@ -115,9 +115,10 @@ async function main(action: string, assPath: string) {
   const cx: RenderContext = { tmpDir, server, mode: 'render' };
   server.setRootDir(resolvePath(assPath, '..'));
   if (action === 'preview' && template.preview) {
-    let shouldOpenBrowser = true;
+    let previewer: Previewer | undefined;
+    let finished = false;
     cx.mode = 'preview';
-    for (;;) {
+    while(!finished) {
       const abortController = new AbortController();
       const previewOptions = await template.preview(cx, assMeta);
       cx.signal = abortController.signal;
@@ -129,20 +130,24 @@ async function main(action: string, assPath: string) {
         }
         assMeta = newAssMeta;
         assMetaString = newAssMetaString;
-        abortController.abort('Subtitle file changed');
+        abortController.abort();
       });
-      try {
-        await startPreview(cx, previewOptions, shouldOpenBrowser);
-        throw new Error('Unexpected program exit');
-      } catch (err) {
-        if (!abortController.signal.aborted) {
-          throw err;
-        }
+      if (previewer) {
+        previewer.updateOptions(previewOptions);
+      } else {
+        previewer = startPreviewer(cx, previewOptions);
       }
+      previewer.setOnCloseListener(() => {
+        finished = true;
+        abortController.abort();
+      });
+      await new Promise<void>((resolve) => {
+        abortController.signal.addEventListener('abort', () => resolve())
+      });
       watcher.close();
       await delayedValue(1000);
-      shouldOpenBrowser = false;
     }
+    previewer?.close();
   } else if (action === 'render' && template.render) {
     await template.render(cx, assMeta);
   }
