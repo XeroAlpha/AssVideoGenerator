@@ -15,8 +15,7 @@ export function parseDuration(str: string): number {
   return NaN;
 }
 
-const timestampRegex =
-  /(?:(?:(\d{1,2}):)?(\d{1,2}):)?(\d{1,2})(?:\.(\d{1,3}))?/;
+const timestampRegex = /(?:(?:(\d{1,2}):)?(\d{1,2}):)?(\d{1,2})(?:\.(\d{1,3}))?/;
 export function parseTimestamp(str: string): number {
   const match = timestampRegex.exec(str);
   if (!match) throw new Error('Invalid timestamp: ' + str);

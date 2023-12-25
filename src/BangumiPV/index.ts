@@ -17,19 +17,14 @@ function parseEqualSeperatedMap(strs: string[]) {
   return map;
 }
 
-function parsePageDefinition(
-  def: string,
-  meta: Record<string, string | undefined>
-) {
+function parsePageDefinition(def: string, meta: Record<string, string | undefined>) {
   const pages: Page[] = [];
   let pos = 0;
   let totalDuration = 0.5;
   while (pos < def.length) {
     const pageMemberStart = def.indexOf('(', pos);
     if (pageMemberStart < 0) break;
-    const [durationStr, effect, ...effectOptions] = def
-      .slice(pos, pageMemberStart)
-      .split(':');
+    const [durationStr, effect, ...effectOptions] = def.slice(pos, pageMemberStart).split(':');
     const pageMemberEnd = def.indexOf(')', pageMemberStart + 1);
     if (pageMemberEnd < 0) break;
     const duration = parseDuration(durationStr);
@@ -70,10 +65,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   const resolution = getResolution(mediaInfo);
   const kvPathOrUrl = meta.templateOptions.kv;
   const highlightVideo = meta.templateOptions.highlightVideo || meta.videoFile;
-  const pages: Page[] = parsePageDefinition(
-    meta.templateOptions.pages || '',
-    meta.templateOptions
-  );
+  const pages: Page[] = parsePageDefinition(meta.templateOptions.pages || '', meta.templateOptions);
   const customFPS = parseFloat(meta.templateOptions.fps || '');
   const extraStyles: InputProps['extraStyles'] = {};
   Object.entries(meta.templateOptions)

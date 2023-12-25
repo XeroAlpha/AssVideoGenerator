@@ -1,14 +1,8 @@
-import {
-  AbsoluteFill,
-  Audio,
-  interpolate,
-  Sequence,
-  useCurrentFrame,
-} from 'remotion';
+import { AbsoluteFill, Audio, interpolate, Sequence, useCurrentFrame } from 'remotion';
 import { calculateFrameCounts, InputProps } from './Video';
 import { DescriptionViewer } from './DescriptionViewer';
 import { PreviewViewer } from './PreviewViewer';
-import { VideoIntro } from './VideoIntro';
+import { VideoShot } from './VideoIntro';
 import { getUrl, toUrlIfNecessary } from '../utils/staticServerApi';
 
 function clamp(v: number, min: number, max: number): number {
@@ -24,18 +18,9 @@ interface SeriesMeta {
 
 export const EpisodePreview: React.FC<InputProps> = (meta) => {
   const series: SeriesMeta[] = [];
-  const scaleRatio = Math.min(
-    meta.resolution.width / 1920,
-    meta.resolution.height / 1080
-  );
+  const scaleRatio = Math.min(meta.resolution.width / 1920, meta.resolution.height / 1080);
   const frameCountMeta = calculateFrameCounts(meta);
-  if (meta.videoEnd) {
-    series.push({
-      name: 'videoIntro',
-      el: () => <VideoIntro videoEnd={getUrl('video_end')} />,
-      durationInFrames: 0,
-    });
-  }
+  let bgmStartOffset = 0;
   series.push({
     name: 'images',
     el: (frame, durationInFrames) => (
@@ -71,6 +56,20 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       durationInFrames: 0,
     }
   );
+  if (meta.previewPosition === 'start') {
+    series.push({
+      name: 'videoEnding',
+      el: () => <VideoShot url={getUrl('video_shot')} />,
+      durationInFrames: 0,
+    });
+    bgmStartOffset = meta.transition;
+  } else if (meta.previewPosition) {
+    series.unshift({
+      name: 'videoIntro',
+      el: () => <VideoShot url={getUrl('video_shot')} />,
+      durationInFrames: 0,
+    });
+  }
   const { transitionInFrames } = frameCountMeta;
   let start = 0;
   for (const e of series) {
@@ -83,15 +82,10 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     }),
-    interpolate(
-      frame - frameCountMeta.durationInFrames,
-      [-transitionInFrames, 0],
-      [1, 0],
-      {
-        extrapolateLeft: 'clamp',
-        extrapolateRight: 'clamp',
-      }
-    )
+    interpolate(frame - frameCountMeta.durationInFrames, [-transitionInFrames, 0], [1, 0], {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    })
   );
   return (
     <div style={{ flex: 1, backgroundColor: 'white' }}>
@@ -101,20 +95,11 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
         const frameEnd = frameStart + e.durationInFrames;
         const frameEndOffseted = frameEnd + transitionInFrames;
         const frameOutSequence = frame - frameStartOffseted;
-        const frameInSequence = clamp(
-          frame - frameStart,
-          0,
-          e.durationInFrames
-        );
-        const opacity = interpolate(
-          frameOutSequence,
-          [0, transitionInFrames],
-          [0, 1],
-          {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          }
-        );
+        const frameInSequence = clamp(frame - frameStart, 0, e.durationInFrames);
+        const opacity = interpolate(frameOutSequence, [0, transitionInFrames], [0, 1], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
         return (
           <Sequence
             key={e.name}
@@ -137,7 +122,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
         <Sequence name="BGM">
           <Audio
             src={toUrlIfNecessary(meta.bgm.src)}
-            startFrom={Math.floor(meta.bgm.start * meta.fps)}
+            startFrom={Math.floor((meta.bgm.start + bgmStartOffset) * meta.fps)}
             volume={() => fadeProgress * (meta.bgm?.volume ?? 1)}
           />
         </Sequence>

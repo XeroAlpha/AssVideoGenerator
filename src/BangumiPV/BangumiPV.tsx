@@ -1,19 +1,108 @@
 import { ReactNode } from 'react';
-import {
-  AbsoluteFill,
-  useCurrentFrame,
-  useVideoConfig,
-  Easing,
-  Img,
-  Video,
-  Audio,
-  Sequence,
-} from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, Easing, Img, Video, Audio, Sequence } from 'remotion';
 import { InputProps } from './Video';
 import { interpolateClamp } from '../utils/interpolate';
 import { paragraphToDOM } from '../utils/paragraph';
 import { style } from '../utils/style';
 import { toUrlIfNecessary } from '../utils/staticServerApi';
+
+const Styles = {
+  background: style({
+    objectFit: 'cover',
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
+  }),
+  horizontalLayout: style({
+    position: 'absolute',
+    height: '100%',
+    width: '100%',
+    display: 'flex',
+    fontFamily: '"方正FW轻吟体 简"',
+    zIndex: 10,
+  }),
+  leftBar: style({
+    flex: '0 0',
+    color: 'white',
+    height: '100%',
+    padding: '40px',
+    position: 'relative',
+  }),
+  titleBar: style({
+    position: 'absolute',
+    right: '40px',
+    bottom: '40px',
+    maxWidth: 'calc(100% - 120px)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    backdropFilter: 'blur(5px)',
+    borderRadius: '25px 0px 25px 0px',
+    border: '5px solid white',
+    padding: '30px',
+    fontSize: '50px',
+    fontWeight: '700',
+    textAlign: 'center',
+    color: 'black',
+  }),
+  titleBarOriginal: style({
+    fontFamily: '思源黑体',
+    marginTop: '10px',
+    fontSize: '35px',
+  }),
+  kvWrapper: style({
+    height: '100%',
+  }),
+  kv: style({
+    height: '100%',
+    width: 'fit-content',
+    objectFit: 'cover',
+    borderRadius: '25px',
+    border: '5px solid white',
+    backgroundColor: 'black',
+  }),
+  rightBar: style({
+    flex: '1 0',
+    height: '100%',
+    marginLeft: '20px',
+    boxShadow: '-10px 0px 10px rgba(0,0,0,0.5)',
+    position: 'relative',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    backdropFilter: 'blur(10px)',
+    fontSize: '35px',
+    lineHeight: '50px',
+    fontFamily: '方正准圆_GBK',
+    color: 'black',
+  }),
+  page: style({
+    position: 'absolute',
+    inset: '0 0 0 0',
+    padding: '25px 50px 50px 50px',
+    overflow: 'clip',
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
+    gridAutoRows: 'min-content',
+  }),
+  label: style({
+    height: 'fit-content',
+    borderRadius: '1000px',
+    marginTop: '20px',
+    padding: '10px 25px',
+    backgroundColor: 'black',
+    color: 'white',
+    textAlign: 'center',
+    alignSelf: 'start',
+  }),
+  content: style({
+    alignSelf: 'center',
+    padding: '30px 0 20px 0',
+    marginLeft: '30px',
+  }),
+  sectionParagraph: style({
+    marginTop: '30px',
+  }),
+  sectionParagraphFirst: style({
+    marginTop: '0',
+  }),
+};
 
 const elasticEasing = Easing.elastic();
 
@@ -30,20 +119,11 @@ export const BangumiPV: React.FC<InputProps> = ({
   const frame = useCurrentFrame();
   const time = frame / fps;
 
-  const barIntroAnimation = interpolateClamp(
-    time,
-    [0.2, 0.7],
-    [0, 1],
-    Easing.out(Easing.circle)
-  );
+  const barIntroAnimation = interpolateClamp(time, [0.2, 0.7], [0, 1], Easing.out(Easing.circle));
   const videoAnimationFunc = (frame: number) => {
     return (
       interpolateClamp(frame, [0.7 * fps, 1.2 * fps], [0, 1]) +
-      interpolateClamp(
-        frame,
-        [durationInFrames - 0.7 * fps, durationInFrames],
-        [0, -1]
-      )
+      interpolateClamp(frame, [durationInFrames - 0.7 * fps, durationInFrames], [0, -1])
     );
   };
 
@@ -64,11 +144,7 @@ export const BangumiPV: React.FC<InputProps> = ({
       width: '100%',
       display: 'flex',
       fontFamily: '"方正FW轻吟体 简"',
-      opacity: interpolateClamp(
-        frame,
-        [durationInFrames - 0.5 * fps, durationInFrames],
-        [1, 0]
-      ),
+      opacity: interpolateClamp(frame, [durationInFrames - 0.5 * fps, durationInFrames], [1, 0]),
       zIndex: 10,
     },
     extraStyles.horizontalLayout
@@ -80,11 +156,7 @@ export const BangumiPV: React.FC<InputProps> = ({
       height: '100%',
       padding: '40px',
       position: 'relative',
-      transform: `translateX(${interpolateClamp(
-        barIntroAnimation,
-        [0, 1],
-        [-100, 0]
-      )}%)`,
+      transform: `translateX(${interpolateClamp(barIntroAnimation, [0, 1], [-100, 0])}%)`,
     },
     extraStyles.leftBar
   );
@@ -140,11 +212,7 @@ export const BangumiPV: React.FC<InputProps> = ({
       position: 'relative',
       backgroundColor: 'rgba(255,255,255,0.7)',
       backdropFilter: 'blur(10px)',
-      transform: `translateX(${interpolateClamp(
-        barIntroAnimation,
-        [0, 1],
-        [110, 0]
-      )}%)`,
+      transform: `translateX(${interpolateClamp(barIntroAnimation, [0, 1], [110, 0])}%)`,
       fontSize: '35px',
       lineHeight: '50px',
       fontFamily: '方正准圆_GBK',
@@ -238,12 +306,8 @@ export const BangumiPV: React.FC<InputProps> = ({
                   extraStyles.contentGridItem,
                   extraStyles[`contentGridItem.p${pageIndex}`],
                   extraStyles[`contentGridItem.p${pageIndex}s${sectionIndex}`],
-                  extraStyles[
-                    `contentGridItem.p${pageIndex}s${sectionIndex}p${paraIndex}`
-                  ],
-                  extraStyles[
-                    `contentGridItem.p${pageIndex}s${sectionIndex}p${paraIndex}#${lineIndex}`
-                  ]
+                  extraStyles[`contentGridItem.p${pageIndex}s${sectionIndex}p${paraIndex}`],
+                  extraStyles[`contentGridItem.p${pageIndex}s${sectionIndex}p${paraIndex}#${lineIndex}`]
                 );
                 if (lineIndex === lines.length - 1) {
                   itemStyle.gridColumnEnd = gridColumnCount + 1;

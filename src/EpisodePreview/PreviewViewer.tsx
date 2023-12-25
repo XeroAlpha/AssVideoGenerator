@@ -11,21 +11,13 @@ export const PreviewViewer: React.FC<{
   title: string;
   scaleRatio: number;
 }> = ({ frame, images, interval, transitionTime, title, scaleRatio }) => {
-  const currentIndex = Math.min(
-    Math.floor(frame / interval),
-    images.length - 1
-  );
+  const currentIndex = Math.min(Math.floor(frame / interval), images.length - 1);
   const nextIndex = Math.min(currentIndex + 1, images.length - 1);
   const firstImage = images[currentIndex];
   const secondImage = images[nextIndex];
-  const transitionProgress = interpolate(
-    frame - interval * (currentIndex + 1),
-    [-transitionTime, 0],
-    [0, 1],
-    {
-      extrapolateLeft: 'clamp',
-    }
-  );
+  const transitionProgress = interpolate(frame - interval * (currentIndex + 1), [-transitionTime, 0], [0, 1], {
+    extrapolateLeft: 'clamp',
+  });
   const roundIndex = transitionProgress < 0.5 ? currentIndex : nextIndex;
   const fadeIn = interpolate(frame, [0, transitionTime], [0, 1], {
     extrapolateRight: 'clamp',

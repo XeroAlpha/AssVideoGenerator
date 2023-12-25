@@ -1,11 +1,12 @@
 import { registerRoot, Composition } from 'remotion';
+import { zTextarea } from '@remotion/zod-types';
 import { z } from 'zod';
 import { getInputProps } from '../utils/inputProps';
 import { BangumiPV } from './BangumiPV';
 
 export const sectionSchema = z.object({
   name: z.string(),
-  content: z.string(),
+  content: zTextarea(),
   style: z.string(),
   styleOptions: z.record(z.string(), z.string().optional()),
 });
@@ -28,12 +29,9 @@ export const inputPropsSchema = z.object({
   video: z.string(),
   highlightTime: z.number(),
   kv: z.string(),
-  title: z.string(),
-  titleOriginal: z.string().optional(),
-  extraStyles: z.record(
-    z.string(),
-    z.record(z.string(), z.string().optional()).optional()
-  ),
+  title: zTextarea(),
+  titleOriginal: zTextarea().optional(),
+  extraStyles: z.record(z.string(), z.record(z.string(), z.string().optional()).optional()),
   pages: z.array(pageSchema),
 });
 

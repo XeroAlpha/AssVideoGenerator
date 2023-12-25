@@ -1,20 +1,28 @@
-import {
-  Context,
-  createContext,
-  CSSProperties,
-  FC,
-  ReactNode,
-  useContext,
-} from 'react';
+import { Context, createContext, CSSProperties, FC, ReactNode, useContext } from 'react';
 
 export function style(...styles: (CSSProperties | undefined)[]): CSSProperties {
   return Object.assign({}, ...styles.filter((e) => e !== undefined));
 }
 
-export type StyleMap<K extends string = string> = Record<
-  K,
-  CSSProperties | undefined
->;
+export type StyleMap<K extends string = string> = Record<K, CSSProperties | undefined>;
+
+export type PartialStyleMap<K extends string = string> = Partial<StyleMap<K>>;
+
+export function mergeStyleMap<K extends string>(...styleMaps: (PartialStyleMap<K> | undefined)[]) {
+  const merged = {} as StyleMap<K>;
+  for (const styleMap of styleMaps) {
+    if (!styleMap) continue;
+    Object.entries(styleMap).forEach(([className, classStyle]) => {
+      if (!classStyle) return;
+      if (className in merged) {
+        merged[className as K] = style(merged[className as K], classStyle);
+      } else {
+        merged[className as K] = classStyle;
+      }
+    });
+  }
+  return merged;
+}
 
 export const StyledContext: Context<StyleMap> = createContext({});
 
@@ -23,11 +31,7 @@ export const Styled: FC<{
   children: ReactNode;
 }> = ({ styles, children }) => {
   const context = useContext(StyledContext);
-  return (
-    <StyledContext.Provider value={{ ...context, ...styles }}>
-      {children}
-    </StyledContext.Provider>
-  );
+  return <StyledContext.Provider value={mergeStyleMap(context, styles)}>{children}</StyledContext.Provider>;
 };
 
 function splitClassName(className: string): string[] {
@@ -36,18 +40,12 @@ function splitClassName(className: string): string[] {
 
 type UnmergableString = string & NonNullable<unknown>;
 
-export function useStyledClass<K extends string>(styleMap?: StyleMap<K>) {
+export function useStyledClass<K extends string>(...styleMaps: PartialStyleMap<K>[]) {
   const context = useContext(StyledContext);
-  const mergedMap = { ...context, ...styleMap };
-  return (
-    ...classOrStyles: (K | UnmergableString | CSSProperties | undefined)[]
-  ) => {
-    const classes = classOrStyles.filter(
-      (e) => typeof e === 'string'
-    ) as string[];
-    const styles = classOrStyles.filter(
-      (e) => typeof e === 'object'
-    ) as CSSProperties[];
+  const mergedMap = mergeStyleMap(context, ...styleMaps);
+  return (...classOrStyles: (K | UnmergableString | CSSProperties | undefined)[]) => {
+    const classes = classOrStyles.filter((e) => typeof e === 'string') as string[];
+    const styles = classOrStyles.filter((e) => typeof e === 'object') as CSSProperties[];
     const inheritedStyles: CSSProperties[] = [];
     Object.entries(mergedMap).forEach(([matchClassName, style]) => {
       if (!style) return;
@@ -62,3 +60,5 @@ export function useStyledClass<K extends string>(styleMap?: StyleMap<K>) {
     };
   };
 }
+
+export type Styler = ReturnType<typeof useStyledClass>;

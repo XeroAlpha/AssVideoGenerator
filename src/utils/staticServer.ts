@@ -9,10 +9,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const agent = process.env.https_proxy === undefined ? undefined : new HttpsProxyAgent(process.env.https_proxy);
 
-type Handler = (
-  q: URLSearchParams,
-  res: ServerResponse
-) => Promise<void> | void;
+type Handler = (q: URLSearchParams, res: ServerResponse) => Promise<void> | void;
 
 export class StaticServer {
   private fileMap = new Map<string, string>();

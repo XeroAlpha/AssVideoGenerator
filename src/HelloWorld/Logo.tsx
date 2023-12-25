@@ -1,10 +1,4 @@
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from 'remotion';
+import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Arc } from './Arc';
 import { Atom } from './Atom';
 
@@ -38,11 +32,7 @@ export const Logo: React.FC = () => {
     fps: videoConfig.fps,
   });
 
-  const logoRotation = interpolate(
-    frame,
-    [0, videoConfig.durationInFrames],
-    [0, 360]
-  );
+  const logoRotation = interpolate(frame, [0, videoConfig.durationInFrames], [0, 360]);
 
   return (
     <AbsoluteFill
@@ -50,21 +40,9 @@ export const Logo: React.FC = () => {
         transform: `scale(${scale}) rotate(${logoRotation}deg)`,
       }}
     >
-      <Arc
-        rotateProgress={rotationDevelopment}
-        progress={development}
-        rotation={30}
-      />
-      <Arc
-        rotateProgress={rotationDevelopment}
-        rotation={90}
-        progress={development}
-      />
-      <Arc
-        rotateProgress={rotationDevelopment}
-        rotation={-30}
-        progress={development}
-      />
+      <Arc rotateProgress={rotationDevelopment} progress={development} rotation={30} />
+      <Arc rotateProgress={rotationDevelopment} rotation={90} progress={development} />
+      <Arc rotateProgress={rotationDevelopment} rotation={-30} progress={development} />
       <Atom scale={rotationDevelopment} />
     </AbsoluteFill>
   );

@@ -17,10 +17,6 @@ export const HelloWorldTemplate: RenderTemplate = {
   preview: getRenderOptions,
   render(cx, meta) {
     const renderOptions = getRenderOptions(cx, meta);
-    return render(
-      cx,
-      renderOptions,
-      withExtension(meta.subtitleFile, '.subtitle.mp4')
-    );
+    return render(cx, renderOptions, withExtension(meta.subtitleFile, '.subtitle.mp4'));
   },
 };

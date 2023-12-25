@@ -1,12 +1,9 @@
+import { existsSync } from 'fs';
 import { bundle } from '@remotion/bundler';
 import { selectComposition, renderMedia } from '@remotion/renderer';
 import { RenderContext, RenderOptions } from '../main';
 
-export async function render(
-  cx: RenderContext,
-  renderOptions: RenderOptions,
-  outputLocation: string
-): Promise<void> {
+export async function render(cx: RenderContext, renderOptions: RenderOptions, outputLocation: string): Promise<void> {
   const { entryPoint, compositionId, inputProps } = renderOptions;
   const tty = process.stdout;
   const bundleLocation = await bundle({
@@ -16,8 +13,10 @@ export async function render(
     },
   });
   const browserConfig = {
-    browserExecutable:
+    browserExecutable: [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    ].find((p) => existsSync(p)),
     chromiumOptions: {
       headless: true,
     },
@@ -41,12 +40,9 @@ export async function render(
     onProgress(p) {
       const frames = p.renderedFrames || p.encodedFrames;
       tty.write(
-        `Progress: ${String(frames).padStart(
-          totalFrames.length,
-          ' '
-        )} / ${totalFrames} (${(p.progress * 100).toFixed(0)}%) - ${
-          p.stitchStage
-        }      \r`
+        `Progress: ${String(frames).padStart(totalFrames.length, ' ')} / ${totalFrames} (${(p.progress * 100).toFixed(
+          0
+        )}%) - ${p.stitchStage}      \r`
       );
     },
     enforceAudioTrack: true,

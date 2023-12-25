@@ -24,12 +24,7 @@ export const Atom: React.FC<{
           <stop offset="100%" stopColor={COLOR_2} />
         </linearGradient>
       </defs>
-      <circle
-        r={70}
-        cx={config.width / 2}
-        cy={config.height / 2}
-        fill={`url(#${gradientId})`}
-      />
+      <circle r={70} cx={config.width / 2} cy={config.height / 2} fill={`url(#${gradientId})`} />
     </svg>
   );
 };

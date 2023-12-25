@@ -29,9 +29,7 @@ function rationalToNumber(rational: string): number {
 }
 
 export function getFPS(info: ProbeResult) {
-  const videoStreams = info.streams.filter(
-    (stream) => stream.codec_type === 'video'
-  );
+  const videoStreams = info.streams.filter((stream) => stream.codec_type === 'video');
   if (videoStreams.length > 0) {
     return rationalToNumber(videoStreams[0].r_frame_rate);
   }
@@ -51,11 +49,7 @@ export function getDuration(info: ProbeResult, videoOnly?: boolean) {
       const pattern = /(\d+):(\d+):([\d.]+)/;
       const patternMatch = durationText.match(pattern);
       if (patternMatch) {
-        return (
-          parseInt(patternMatch[1], 10) * 3600 +
-          parseInt(patternMatch[2], 10) * 60 +
-          parseFloat(patternMatch[3])
-        );
+        return parseInt(patternMatch[1], 10) * 3600 + parseInt(patternMatch[2], 10) * 60 + parseFloat(patternMatch[3]);
       }
     }
     return 0;
@@ -63,12 +57,8 @@ export function getDuration(info: ProbeResult, videoOnly?: boolean) {
   return Math.max(...durations);
 }
 
-export function getResolution(
-  info: ProbeResult
-): { width: number; height: number } | null {
-  const videoStream = info.streams.find(
-    (stream) => stream.codec_type === 'video'
-  );
+export function getResolution(info: ProbeResult): { width: number; height: number } | null {
+  const videoStream = info.streams.find((stream) => stream.codec_type === 'video');
   if (videoStream && videoStream.width && videoStream.height) {
     return {
       width: videoStream.width,

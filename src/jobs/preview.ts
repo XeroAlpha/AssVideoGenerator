@@ -9,10 +9,7 @@ export interface Previewer {
   close(): void;
 }
 
-export function startPreviewer(
-  cx: RenderContext,
-  initOptions: RenderOptions
-): Previewer {
+export function startPreviewer(cx: RenderContext, initOptions: RenderOptions): Previewer {
   const inputPropFile = resolvePath(cx.tmpDir, 'inputProps.json');
   const updateOptions = (options: RenderOptions) => {
     writeFileSync(inputPropFile, JSON.stringify(options.inputProps));
@@ -23,8 +20,10 @@ export function startPreviewer(
     resolvePath(__dirname, 'preview-cli.js'),
     [
       'studio',
-      '--log', 'verbose',
-      '--props', inputPropFile,
+      '--log',
+      'verbose',
+      '--props',
+      inputPropFile,
       relativePath(resolvePath(__dirname, '..', '..'), initOptions.entryPoint),
     ],
     {
@@ -47,6 +46,6 @@ export function startPreviewer(
     updateOptions,
     close() {
       proc.kill();
-    }
+    },
   };
 }

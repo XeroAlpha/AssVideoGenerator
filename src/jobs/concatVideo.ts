@@ -9,10 +9,7 @@ export interface ConcatVideoOption {
   output: string;
 }
 
-export async function concatVideo(
-  cx: RenderContext,
-  options: ConcatVideoOption
-): Promise<void> {
+export async function concatVideo(cx: RenderContext, options: ConcatVideoOption): Promise<void> {
   const mergedTmpFile = resolvePath(cx.tmpDir, 'merged.mkv');
   const mergeArgs: string[] = [];
   const videoLinks: string[] = [];

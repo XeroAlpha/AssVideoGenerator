@@ -39,9 +39,7 @@ export function extractAssMeta(subtitleFile: string) {
   const assContent = readFileSync(subtitleFile, 'utf-8');
   const parsedAss = parse(assContent);
   const aegisubMeta = parseAegisubMeta(assContent);
-  const videoFile =
-    aegisubMeta['Video File'] &&
-    resolvePath(subtitleFile, '..', aegisubMeta['Video File']);
+  const videoFile = aegisubMeta['Video File'] && resolvePath(subtitleFile, '..', aegisubMeta['Video File']);
   let metaStyle = '';
   let currentTemplateMeta: TemplateMeta = {};
   const assMeta: AssMeta = {

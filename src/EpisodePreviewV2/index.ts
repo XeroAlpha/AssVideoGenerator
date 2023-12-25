@@ -5,6 +5,7 @@ import { ffmpeg, ffprobe, getDuration, getFPS, getResolution } from '../jobs/ffm
 import { render } from '../jobs/render';
 import { AssMeta, RenderContext, RenderTemplate } from '../main';
 import { parseDuration, parseTimestamp } from '../utils/duration';
+import { parseExtraStyles } from '../utils/extraStyle';
 import { withExtension } from '../utils/fileExtensions';
 import { InputProps } from './Video';
 
@@ -70,6 +71,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   const interval = parseDuration(meta.templateOptions.interval || '');
   const textDuration = parseDuration(meta.templateOptions.textDuration || '');
   const transition = parseDuration(meta.templateOptions.transition || '');
+  const ending = parseDuration(meta.templateOptions.ending || '');
   return {
     entryPoint: resolvePath(__dirname, './Video.tsx'),
     compositionId: 'EpisodePreview',
@@ -78,23 +80,27 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       resolution,
       previewPosition,
       images,
+      episodeName: meta.templateOptions.episodeName,
       title: meta.templateOptions.title,
       description: meta.templateOptions.description,
       staff: meta.templateOptions.staff,
+      info: meta.templateOptions.info,
       background,
       interval,
       textDuration,
       transition,
+      ending: isNaN(ending) ? transition : ending,
       bgm: meta.templateOptions.bgm && {
         src: meta.templateOptions.bgm,
         start: parseTimestamp(meta.templateOptions['bgm.start'] || ''),
         volume: parseFloat(meta.templateOptions['bgm.volume'] || ''),
       },
+      extraStyles: parseExtraStyles('css', meta.templateOptions),
     } as InputProps,
   };
 }
 
-export const EpisodePreviewTemplate: RenderTemplate = {
+export const EpisodePreviewTemplateV2: RenderTemplate = {
   preview: getRenderOptions,
   async render(cx, meta) {
     const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
