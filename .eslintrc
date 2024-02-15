@@ -2,6 +2,7 @@
   "extends": ["@remotion"],
   "parser": "@typescript-eslint/parser",
   "rules": {
-    "capitalized-comments": "off"
+    "capitalized-comments": "off",
+    "no-redeclare": "off"
   }
 }

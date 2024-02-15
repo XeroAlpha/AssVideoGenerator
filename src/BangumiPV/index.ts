@@ -1,11 +1,12 @@
 import { resolve as resolvePath } from 'path';
+import { mapToArgs } from '../jobs/burnSubtitle';
 import { ensureInTmpDir } from '../jobs/common';
 import { ffmpeg, ffprobe, getFPS, getResolution } from '../jobs/ffmpeg';
+import { calculateLoudnormArgs, defaultLoudnormOptions } from '../jobs/loudnorm';
 import { render } from '../jobs/render';
-import { RenderContext, RenderTemplate, AssMeta } from '../main';
-import { withExtension } from '../utils/fileExtensions';
+import { AssMeta, RenderContext, RenderTemplate } from '../main';
 import { parseDuration, parseTimestamp } from '../utils/duration';
-import { mapToArgs } from '../jobs/burnSubtitle';
+import { withExtension } from '../utils/fileExtensions';
 import { InputProps, Page } from './Video';
 
 function parseEqualSeperatedMap(strs: string[]) {
@@ -106,6 +107,8 @@ export const BangumiPVTemplate: RenderTemplate = {
     const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
     const appendVideoFile = resolvePath(cx.tmpDir, 'append.mp4');
     await render(cx, renderOptions, appendVideoFile);
+    const enableLoudnorm = !meta.templateOptions.disableLoudnorm;
+    const videoLoudnormArgs = enableLoudnorm && (await calculateLoudnormArgs(meta.videoFile, defaultLoudnormOptions));
     await ffmpeg([
       ...mapToArgs(meta.templateOptions, 'vargs:'),
       '-i',
@@ -117,17 +120,20 @@ export const BangumiPVTemplate: RenderTemplate = {
       '-filter_complex',
       [
         renderOptions.customizedFPS
-          ? `[0:v] minterpolate='fps=${renderOptions.customizedFPS}:mi_mode=dup' [ph1v]`
-          : `[0:v] null [ph1v]`,
-        `[ph1v] ass='${subtitleInTmpDir.replace(/[\\:]/g, '\\$&')}' [ph2v]`,
-        `[ph2v] [0:a] [1:v] [1:a] concat='n=2:v=1:a=1' [ph3v] [ph3a]`,
+          ? `[0:v] minterpolate='fps=${renderOptions.customizedFPS}:mi_mode=dup' [video_v]`
+          : `[0:v] null [video_v]`,
+        `[video_v] ass='${subtitleInTmpDir.replace(/[\\:]/g, '\\$&')}' [subtitled_v]`,
+        `[subtitled_v][0:a][1:v][1:a] concat='n=2:v=1:a=1' [final_v][concat_a]`,
+        enableLoudnorm ? `[concat_a] loudnorm=${videoLoudnormArgs} [final_a]` : '[concat_a] cnull [final_a]',
       ].join('; '),
+      '-ar',
+      '48k',
       '-y',
       ...mapToArgs(meta.templateOptions, 'args:'),
       '-map',
-      '[ph3v]',
+      '[final_v]',
       '-map',
-      '[ph3a]',
+      '[final_a]',
       withExtension(meta.subtitleFile, '.subtitle.mp4'),
     ]);
   },

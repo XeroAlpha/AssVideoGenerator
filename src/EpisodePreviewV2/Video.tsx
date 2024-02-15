@@ -7,6 +7,7 @@ import { EpisodePreview } from './EpisodePreview';
 
 export const inputPropsSchema = z.object({
   fps: z.number().positive(),
+  remapFps: z.number().positive().optional(),
   resolution: z.object({
     width: z.number().positive(),
     height: z.number().positive(),
@@ -26,7 +27,6 @@ export const inputPropsSchema = z.object({
     .object({
       src: z.string(),
       start: z.number(),
-      volume: z.number(),
     })
     .optional(),
   extraStyles: extraStyleMapSchema,

@@ -2,10 +2,12 @@ import { copyFileSync } from 'fs';
 import { resolve as resolvePath } from 'path';
 import { ensureInTmpDir } from '../jobs/common';
 import { ffmpeg, ffprobe, getDuration, getFPS, getResolution } from '../jobs/ffmpeg';
+import { calculateLoudnormArgs, defaultLoudnormOptions } from '../jobs/loudnorm';
 import { render } from '../jobs/render';
 import { AssMeta, RenderContext, RenderTemplate } from '../main';
 import { parseDuration, parseTimestamp } from '../utils/duration';
 import { parseExtraStyles } from '../utils/extraStyle';
+import { filterComplex } from '../utils/ffmpegFilter';
 import { withExtension } from '../utils/fileExtensions';
 import { InputProps } from './Video';
 
@@ -36,17 +38,16 @@ function expandList(listPattern: string): string[] {
 
 async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   let fps = 30;
+  let origFps: number | undefined;
   let resolution = { width: 1920, height: 1080 };
   let videoDuration = 0;
   let previewPosition: string | undefined;
   if (meta.videoFile) {
     const mediaInfo = await ffprobe(meta.videoFile);
-    fps = getFPS(mediaInfo);
+    origFps = getFPS(mediaInfo);
+    fps = meta.templateOptions.fps ? parseInt(meta.templateOptions.fps, 10) : origFps;
     videoDuration = getDuration(mediaInfo, true);
-    const resolutionNullable = getResolution(mediaInfo);
-    if (resolutionNullable) {
-      resolution = resolutionNullable;
-    }
+    resolution = getResolution(mediaInfo) || resolution;
     const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
     const videoShotPath = resolvePath(cx.tmpDir, 'video_shot.png');
     previewPosition = meta.templateOptions.position === 'start' ? 'start' : 'end';
@@ -54,13 +55,15 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       '-i',
       meta.videoFile,
       '-ss',
-      previewPosition === 'start' ? '0' : String(videoDuration - 1 / fps),
+      previewPosition === 'start' ? '0' : String(videoDuration - 1 / origFps),
       '-update',
       '1',
       '-frames:v',
       '1',
       '-filter_complex',
-      `ass='${subtitleInTmpDir.replace(/[\\:]/g, '\\$&')}'`,
+      filterComplex(({ from, filter }) => {
+        from().pipe(filter.ass([subtitleInTmpDir]));
+      }),
       '-y',
       videoShotPath,
     ]);
@@ -77,6 +80,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
     compositionId: 'EpisodePreview',
     inputProps: {
       fps,
+      remapFps: origFps === fps ? undefined : origFps,
       resolution,
       previewPosition,
       images,
@@ -93,7 +97,6 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       bgm: meta.templateOptions.bgm && {
         src: meta.templateOptions.bgm,
         start: parseTimestamp(meta.templateOptions['bgm.start'] || ''),
-        volume: parseFloat(meta.templateOptions['bgm.volume'] || ''),
       },
       extraStyles: parseExtraStyles('css', meta.templateOptions),
     } as InputProps,
@@ -109,10 +112,6 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
     const renderOptions = await getRenderOptions(cx, meta);
     await render(cx, renderOptions, previewVideoFile);
     if (meta.videoFile) {
-      let concatInputArgs: string = '[ph2v] [0:a] [1:v] [1:a]';
-      if (renderOptions.inputProps.previewPosition === 'start') {
-        concatInputArgs = '[1:v] [1:a] [ph2v] [0:a]';
-      }
       await ffmpeg([
         '-i',
         meta.videoFile,
@@ -121,16 +120,37 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
         '-i',
         previewVideoFile,
         '-filter_complex',
-        [
-          `[0:v] null [ph1v]`,
-          `[ph1v] ass='${subtitleInTmpDir.replace(/[\\:]/g, '\\$&')}' [ph2v]`,
-          `${concatInputArgs} concat='n=2:v=1:a=1' [ph3v] [ph3a]`,
-        ].join('; '),
+        await filterComplex(async ({ from, input, filter }) => {
+          const [videoVideo] = from(input[0].v).pipe(filter.ass([subtitleInTmpDir]));
+          let previewVideo = input[1].v;
+          let videoAudio = input[0].a;
+          let previewAudio = input[1].a;
+          if (renderOptions.inputProps.remapFps) {
+            [previewVideo] = from(previewVideo).pipe(filter.minterpolate({
+              'fps': renderOptions.inputProps.remapFps,
+              'mi_mode': 'dup'
+            }));
+          }
+          if (!meta.templateOptions.disableLoudnorm) {
+            const videoLoudnormArgs = await calculateLoudnormArgs(meta.videoFile!, defaultLoudnormOptions);
+            const previewLoudnormArgs = await calculateLoudnormArgs(previewVideoFile, defaultLoudnormOptions);
+            [videoAudio] = from(videoAudio).pipe(filter.loudnorm(videoLoudnormArgs));
+            [previewAudio] = from(previewAudio).pipe(filter.loudnorm(previewLoudnormArgs));
+          }
+          let concatInputs = [videoVideo, videoAudio, previewVideo, previewAudio];
+          if (renderOptions.inputProps.previewPosition === 'start') {
+            concatInputs = [previewVideo, previewAudio, videoVideo, videoAudio]
+          }
+          const [finalVideo, finalAudio] = from(...concatInputs).pipe(filter.concat({ n: 2, v: 1, a: 1 }));
+          return { finalVideo, finalAudio };
+        }),
+        '-ar',
+        '48k',
         '-y',
         '-map',
-        '[ph3v]',
+        '[finalVideo]',
         '-map',
-        '[ph3a]',
+        '[finalAudio]',
         outputFile,
       ]);
     } else {

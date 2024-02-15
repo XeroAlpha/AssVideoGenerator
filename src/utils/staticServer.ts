@@ -1,11 +1,10 @@
-import { createServer, Server, ServerResponse } from 'http';
+import { createServer, get as httpGet, Server, ServerResponse } from 'http';
+import { get as httpsGet } from 'https';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { AddressInfo } from 'net';
 import { isAbsolute, resolve as resolvePath } from 'path';
-import { get as httpGet } from 'http';
-import { get as httpsGet } from 'https';
-import { URL, URLSearchParams } from 'url';
 import send from 'send';
-import { HttpsProxyAgent } from 'https-proxy-agent';
+import { URL, URLSearchParams } from 'url';
 
 const agent = process.env.https_proxy === undefined ? undefined : new HttpsProxyAgent(process.env.https_proxy);
 
@@ -40,6 +39,7 @@ export class StaticServer {
           console.error(err);
         }
       }
+      console.log(`Unknown request: ${url}`);
       res.writeHead(404);
       res.end();
     });

@@ -32,9 +32,13 @@ const Styles = {
     color: 'white',
     textShadow: defaultTextShadow,
     whiteSpace: 'pre-wrap',
+    wordBreak: 'break-all',
+    lineBreak: 'anywhere',
   }),
   leftBar: style({
-    flex: '7 0 0px',
+    flexGrow: '0',
+    flexShrink: '0',
+    flexBasis: '70%',
     height: '100%',
     padding: '0px 30px',
     display: 'flex',
@@ -43,7 +47,9 @@ const Styles = {
   }),
   rightBar: style({
     marginRight: '-100px',
-    flex: '3 0 100px',
+    flexGrow: '1',
+    flexShrink: '0',
+    flexBasis: '0',
     height: '100%',
     padding: '30px 130px 30px 30px',
     display: 'flex',
@@ -113,7 +119,7 @@ const Styles = {
   staffBar: style({
     padding: '0px 20px 0px 85px',
     marginTop: '-60px',
-    overflowY: 'hidden',
+    overflow: 'hidden',
   }),
   staffInside: style({
     fontSize: '35px',
@@ -124,15 +130,16 @@ const Styles = {
     marginLeft: '-25px',
   }),
   staffItem: style({
-    padding: '5px 40px 5px 10px',
-    alignContent: 'center',
-    wordBreak: 'break-all',
+    padding: '10px 40px 10px 10px',
+    verticalAlign: 'middle',
+    lineBreak: 'normal',
   }),
   staffLabel: style({
     borderRadius: '1000px',
     padding: '0px 25px 5px 25px',
-    margin: '0px 10px 0px -25px',
+    margin: '0px 15px 0px -25px',
     backgroundColor: 'black',
+    filter: 'drop-shadow(0 0 5px white)',
     fontWeight: 500,
     color: 'white',
     display: 'inline-block',
@@ -194,7 +201,7 @@ function splitStaff(staff: string) {
   return staff
     .split('\n')
     .filter((e) => e !== '')
-    .map((ln) => ln.split('：'));
+    .map((ln) => ln.split('：', 2).map((e) => e.trim()) as [string, string]);
 }
 
 const typewriterSpeed = 30;
@@ -241,14 +248,15 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
   const staffItemAnimateStyles: StyleMap<`staffItemSpec${number}`> = {};
   if (staffItems) {
     for (let i = 0; i < staffItems.length; i++) {
+      const startFrame = (i * 0.2 + 1) * frameCountMeta.transitionInFrames;
       const progress = spring({
-        frame: frame - (i * 0.5 + 1) * frameCountMeta.transitionInFrames,
+        frame: frame - startFrame,
         fps: meta.fps,
         durationInFrames: frameCountMeta.transitionInFrames,
-        config: { stiffness: 50 },
+        config: { mass: 0.5, stiffness: 50 },
       });
       staffItemAnimateStyles[`staffItemSpec${i}`] = {
-        transform: `translateY(${(1 - progress) * 100}%)`,
+        transform: `translateX(${(1 - progress) * 100}%)`,
         opacity: `${progress * 100}%`,
       };
     }
@@ -259,7 +267,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
     frame: meta.previewPosition === 'start' ? frameCountMeta.durationInFrames - frame : frame,
     fps: meta.fps,
     durationInFrames: frameCountMeta.transitionInFrames * 2,
-    config: { stiffness: 50 },
+    config: { mass: 0.8, stiffness: 50 },
   });
   const styled = useStyledClass(
     Styles,
@@ -301,12 +309,11 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
     const progress = 1 - easeOutCubic(clampOne((frame - pre) / (total - pre - post)));
     const staffDOM = staffDOMRef.current;
     if (staffDOM) {
-      staffDOM.scrollTop = Math.round(Math.max(0, staffDOM.scrollHeight - staffDOM.clientHeight) * progress);
+      staffDOM.scrollTop = Math.max(0, staffDOM.scrollHeight - staffDOM.clientHeight) * progress;
     }
     const descDOM = descDOMRef.current;
     if (descDOM) {
-      // descDOM.style.marginBottom = `${(descDOM.clientHeight - 90) * (descProgress - 1)}px`;
-      descDOM.scrollTop = Math.round(Math.max(0, descDOM.scrollHeight - descDOM.clientHeight) * progress);
+      descDOM.scrollTop = Math.max(0, descDOM.scrollHeight - descDOM.clientHeight) * progress;
     }
   });
   return (
@@ -365,11 +372,11 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       </AbsoluteFill>
       {endingProgress < 1 ? <AbsoluteFill {...styled('darkenOverlay', 'darkenTransition')} /> : null}
       {meta.bgm ? (
-        <Sequence name="BGM">
+        <Sequence name="BGM" style={{ display: 'none' }}>
           <Audio
             src={toUrlIfNecessary(meta.bgm.src)}
             startFrom={Math.floor(meta.bgm.start * meta.fps)}
-            volume={() => Math.min(introProgress, endingProgress) * (meta.bgm?.volume ?? 1)}
+            volume={() => Math.min(introProgress, endingProgress)}
           />
         </Sequence>
       ) : null}
