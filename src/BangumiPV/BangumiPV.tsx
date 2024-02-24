@@ -1,11 +1,12 @@
 import { ReactNode } from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, Easing, Img, Video, Audio, Sequence } from 'remotion';
-import { InputProps } from './Video';
+import { AbsoluteFill, Audio, Easing, Img, Sequence, useCurrentFrame, useVideoConfig, Video } from 'remotion';
 import { interpolateClamp } from '../utils/interpolate';
 import { paragraphToDOM } from '../utils/paragraph';
-import { style } from '../utils/style';
 import { toUrlIfNecessary } from '../utils/staticServerApi';
+import { style } from '../utils/style';
+import { InputProps } from './Video';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const Styles = {
   background: style({
     objectFit: 'cover',

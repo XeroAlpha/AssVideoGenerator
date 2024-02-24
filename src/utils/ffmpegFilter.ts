@@ -1,6 +1,12 @@
 type FilterArgumentValue = string | number;
 type FilterArgument = FilterArgumentValue | Record<string, FilterArgumentValue | FileArgument> | FilterArgumentValue[];
 type FilterFunction = (...args: FilterArgument[]) => Filter;
+interface IterableStreamLikeArray<T> extends Iterable<T> {
+  [index: number]: T;
+  toArray(count: number): T[];
+}
+type InputFileStreamMap = IterableStreamLikeArray<Pipe> & Record<string, Pipe>;
+type FilterMap = Record<string, FilterFunction>;
 
 /**
  * 包含了在函数式过滤器表达式中包含的可用上下文函数。
@@ -11,17 +17,25 @@ interface FilterComplexContext {
    */
   from: (...labels: Pipe[]) => ChainNode;
   /**
-   * 创建指定名称的管道，若未指定名词则创建匿名管道。
+   * 创建指定名称的管道，若未指定名称则创建匿名管道。
    */
   pipe: (name?: string) => Pipe;
   /**
+   * 回收未连接到输出的管道。
+   */
+  recycle: (...labels: (Pipe | null | undefined)[]) => void;
+  /**
+   * 切分输入的管道。
+   */
+  split: (pipe: Pipe) => Iterable<Pipe>;
+  /**
    * 输入管道。
    */
-  input: Record<number, Record<string | number, Pipe>>;
+  input: Readonly<IterableStreamLikeArray<Readonly<InputFileStreamMap>>>;
   /**
    * 过滤器。
    */
-  filter: Record<string, FilterFunction>;
+  filter: Readonly<FilterMap>;
   /**
    * 创建文件参数。
    */
@@ -37,7 +51,8 @@ interface ChainNode extends Iterable<Pipe> {
    */
   pipe(filter: Filter | FilterFunction): ChainNode;
   /**
-   * 以当前节点对应数量的输出管道作为输入管道创建新的过滤器节点。
+   * @deprecated
+   * 返回当前节点对应数量的输出管道。
    */
   fork(connectedPipeCount: number): ChainNode;
   /**
@@ -57,9 +72,12 @@ type PipeMediaType = 'unknown' | 'video' | 'audio' | 'data' | 'subtitle' | 'atta
  */
 class Pipe {
   name: string;
+  hintText?: string;
   fixed: boolean;
   mediaType: PipeMediaType = 'unknown';
   boundInput = false;
+  boundOutput = false;
+  shared = false;
 
   constructor(name: string, fixed?: boolean) {
     this.name = name;
@@ -71,7 +89,7 @@ class Pipe {
    */
   as(newName: string) {
     if (this.fixed) {
-      throw new Error(`Cannot rename a fixed pipe`);
+      throw new Error(`Cannot rename a fixed pipe: ${this.inspect()}`);
     }
     this.name = newName;
     this.fixed = true;
@@ -89,45 +107,108 @@ class Pipe {
     return this;
   }
 
+  /** 
+   * 设置管道的提示消息（用于错误提示）。
+   */
+  hint(hint: string) {
+    this.hintText = hint;
+    return this;
+  }
+
   setBoundInput() {
     if (this.boundInput) {
-      throw new Error('Pipe has been bound to output');
+      throw new Error(`Pipe ${this.inspect()} has been bound to output`);
     }
     this.boundInput = true;
+    return this;
+  }
+
+  setBoundOutput() {
+    if (this.boundOutput) {
+      throw new Error(`Pipe ${this.inspect()} has been bound to input, please use split or asplit filter`);
+    }
+    if (!this.shared) {
+      this.boundOutput = true;
+    }
     return this;
   }
 
   toString() {
     return `[${this.name}]`;
   }
+
+  inspect() {
+    if (this.hintText) {
+      return `[${this.name}](${this.hintText})`
+    }
+    return `[${this.name}]`;
+  }
 }
 
-const InputProxy = new Proxy<Record<number, Record<string | number, Pipe>>>({}, {
-  ownKeys() {
-    return [];
-  },
-  get(target, inputIndex) {
-    if (inputIndex in target) {
-      return target[inputIndex as unknown as number];
+const SPREAD_OPERATOR_DETECT_THRESOLD = 128;
+const IterableStreamLikeArrayProto: IterableStreamLikeArray<unknown> = {
+  toArray(count) {
+    const arr = new Array(count);
+    for (let i = 0; i < count; i++) {
+      arr[i] = this[i];
     }
-    const streamProxy = new Proxy<Record<string | number, Pipe>>({}, {
-      ownKeys() {
-        return [];
-      },
-      get(target, streamIndex) {
-        if (streamIndex in target) {
-          return target[streamIndex as string];
-        }
-        const pipe = new Pipe(`${inputIndex as string}:${streamIndex as string}`);
+    return arr;
+  },
+  *[Symbol.iterator]() {
+    for (let i = 0; i < SPREAD_OPERATOR_DETECT_THRESOLD; i++) {
+      yield this[i];
+    }
+    throw new Error(`Do not use spread operator on stream-like array.`);
+  }
+}
+
+function createCachedGetterProxy<T extends object>(target: T, getter: (p: Exclude<keyof T, symbol>) => T[typeof p]): T {
+  const cache: Record<string | symbol, T[keyof T]> = {};
+  return new Proxy(target, {
+    get(target, p) {
+      if (typeof p === 'symbol' || p in target) {
+        return target[p as keyof T];
+      }
+      if (p in cache) {
+        return cache[p];
+      }
+      const value = getter(p as Exclude<keyof T, symbol>);
+      cache[p] = value;
+      return value;
+    }
+  });
+}
+
+const MediaTypePrefixMap: [string, PipeMediaType][] = [
+  ['v', 'video'],
+  ['V', 'video'],
+  ['a', 'audio'],
+  ['s', 'subtitle'],
+  ['d', 'data'],
+  ['t', 'attachment']
+];
+
+const InputProxy = createCachedGetterProxy<IterableStreamLikeArray<InputFileStreamMap>>(
+  Object.create(IterableStreamLikeArrayProto),
+  (inputIndex) => {
+    const streamProxy = createCachedGetterProxy<InputFileStreamMap>(
+      Object.create(IterableStreamLikeArrayProto),
+      (streamSpecifier) => {
+        const pipe = new Pipe(`${inputIndex}:${streamSpecifier}`, true);
         pipe.setBoundInput();
-        target[streamIndex as string] = pipe;
+        pipe.shared = true;
+        if (typeof streamSpecifier === 'string') {
+          const mediaType = MediaTypePrefixMap.find(([prefix]) => streamSpecifier === prefix || streamSpecifier.startsWith(`${prefix}:`));
+          if (mediaType) {
+            pipe.mark(mediaType[1]);
+          }
+        }
         return pipe;
       },
-    });
-    target[inputIndex as unknown as number] = streamProxy;
+    );
     return streamProxy;
   },
-});
+);
 
 class FileArgument {
   path: string;
@@ -198,24 +279,25 @@ class Filter {
   }
 }
 
-const FilterProxy = new Proxy<Record<string, FilterFunction>>({}, {
-  ownKeys() {
-    return [];
-  },
-  get(target, filterName) {
-    if (filterName in target) {
-      return target[filterName as string];
-    }
-    const filterFunction = (...args: FilterArgument[]) => {
+const FilterProxy = createCachedGetterProxy<Record<string, FilterFunction>>(
+  {},
+  (filterName) => {
+    return (...args: FilterArgument[]) => {
       return new Filter(filterName as string, args);
     };
-    target[filterName as string] = filterFunction;
-    return filterFunction;
   },
-});
+);
 const NullFilterMap: Partial<Record<PipeMediaType, Filter>> = {
   video: FilterProxy.null(),
   audio: FilterProxy.anull()
+};
+const NullSinkMap: Partial<Record<PipeMediaType, Filter>> = {
+  video: FilterProxy.nullsink(),
+  audio: FilterProxy.anullsink()
+};
+const SplitMap: Partial<Record<PipeMediaType, FilterFunction>> = {
+  video: FilterProxy.split,
+  audio: FilterProxy.asplit
 };
 
 class ChainNodeImpl implements ChainNode {
@@ -229,31 +311,37 @@ class ChainNodeImpl implements ChainNode {
   prev: ChainNodeImpl | null;
   next: ChainNodeImpl | null;
 
-  constructor(helper: FilterComplexHelper, source: Pipe[], filter?: Filter) {
+  constructor(helper: FilterComplexHelper, source: Pipe[]) {
     this.helper = helper;
     this.source = source;
-    this.filter = filter ?? null;
+    this.filter = null;
     this.destination = [];
     this.prev = null;
     this.next = null;
+    source.forEach((p) => this.helper.checkPipe(p));
   }
 
   pipe(filterOrFunc: Filter | FilterFunction) {
     if (this.next) {
-      throw new Error(`This chain has been linked to another filter, please fork it first`);
+      throw new Error(`This chain has been linked to another filter`);
     }
     const filter = typeof filterOrFunc === 'function' ? filterOrFunc() : filterOrFunc;
     if (!this.filter) {
       this.filter = filter;
+      this.source.forEach((p) => p.setBoundOutput());
       return this;
     }
-    const next = new ChainNodeImpl(this.helper, [], filter);
+    const next = new ChainNodeImpl(this.helper, []);
+    next.pipe(filter);
     this.next = next;
     next.prev = this;
     return next;
   }
 
   fork(connectedPipeCount: number) {
+    if (this.next) {
+      throw new Error(`This chain has been linked to another filter`);
+    }
     if (!this.filter) {
       const src = this.source;
       if (src.length < connectedPipeCount) {
@@ -265,7 +353,10 @@ class ChainNodeImpl implements ChainNode {
     const dest = this.destination;
     if (dest.length < connectedPipeCount) {
       for (let i = dest.length; i <= connectedPipeCount; i++) {
-        dest.push(this.helper.createPipe());
+        const pipe = this.helper.createPipe();
+        pipe.setBoundInput();
+        pipe.hint(`${this.filter}.output.${i}`);
+        dest.push(pipe);
       }
     }
     const fork = new ChainNodeImpl(this.helper, dest.slice(0, connectedPipeCount));
@@ -281,6 +372,7 @@ class ChainNodeImpl implements ChainNode {
       throw new Error(`This chain has already connected to output`);
     }
     for (const pipe of pipes) {
+      this.helper.checkPipe(pipe);
       pipe.setBoundInput();
       dest.push(pipe);
     }
@@ -309,13 +401,14 @@ class ChainNodeImpl implements ChainNode {
     for (const pipe of dest) {
       yield pipe;
     }
-    while (dest.length < 64) {
+    while (dest.length < SPREAD_OPERATOR_DETECT_THRESOLD) {
       const pipe = this.helper.createPipe();
       pipe.setBoundInput();
+      pipe.hint(`${this.filter}.output.${dest.length}`);
       dest.push(pipe);
       yield pipe;
     }
-    throw new Error(`Too many output pipes`);
+    throw new Error(`Do not use spread operator on chain.`);
   }
 
   toString() {
@@ -328,13 +421,25 @@ class ChainNodeImpl implements ChainNode {
 
 class FilterComplexHelper {
   anonymousPipeCounter = 0;
+  trackingPipes = new Set<Pipe>();
   chains: ChainNodeImpl[] = [];
+  completed = false;
   
   createPipe(name?: string) {
+    let pipe: Pipe;
     if (name) {
-      return new Pipe(name, true);
+      pipe = new Pipe(name, true);
+    } else {
+      pipe = new Pipe(`_${++this.anonymousPipeCounter}`);
     }
-    return new Pipe(`_${++this.anonymousPipeCounter}`);
+    this.trackingPipes.add(pipe);
+    return pipe;
+  }
+
+  checkPipe(pipe: Pipe) {
+    if (!pipe.shared && !this.trackingPipes.has(pipe)) {
+      throw new Error(`External pipe ${pipe.inspect()} is not shared.`);
+    }
   }
 
   createChain(source: Pipe[]) {
@@ -344,6 +449,9 @@ class FilterComplexHelper {
   }
 
   addChain(chain: ChainNodeImpl) {
+    if (this.completed) {
+      throw new Error(`Cannot add chain out of context`);
+    }
     this.chains.push(chain);
   }
 
@@ -360,10 +468,31 @@ class FilterComplexHelper {
     }
   }
 
+  *splitPipe(pipe: Pipe) {
+    const splitFilterFunc: FilterFunction | undefined = SplitMap[pipe.mediaType];
+    if (splitFilterFunc === undefined) {
+      if (pipe.mediaType === 'unknown') {
+        throw new Error(`Cannot split ${pipe.inspect()}: Please use pipe.mark() to specify the pipe media type.`);
+      } else {
+        throw new Error(`Cannot split ${pipe.inspect()}: Cannot find appropriate split filter.`);
+      }
+    }
+    const filter = splitFilterFunc();
+    const chain = this.createChain([pipe]).pipe(filter);
+    let outputCount = 0;
+    for (const output of chain) {
+      outputCount += 1;
+      filter.arguments = `${outputCount}`;
+      yield output;
+    }
+  }
+
   getContext(): FilterComplexContext {
     return {
-      from: (...source: Pipe[]) => this.createChain(source),
-      pipe: (name?: string) => this.createPipe(name),
+      from: (...source) => this.createChain(source),
+      pipe: (name) => this.createPipe(name),
+      recycle: (...pipes) => this.sinkPipes(pipes),
+      split: (pipe) => this.splitPipe(pipe),
       input: InputProxy,
       filter: FilterProxy,
       fileArgument: FileArgumentFactory
@@ -385,23 +514,90 @@ class FilterComplexHelper {
     return nodes;
   }
 
-  toString(exports?: Record<string, Pipe>) {
-    if (exports) {
-      for (const [newName, pipe] of Object.entries(exports)) {
-        if (pipe.fixed) {
-          const nullFilter: Filter | undefined = NullFilterMap[pipe.mediaType];
-          if (nullFilter === undefined) {
-            throw new Error(`Cannot decide pipe media type for ${newName}, please use pipe.mark() or use pipe.toString()`);
+  renamePipes(map: Record<string, Pipe>) {
+    const pipes: Pipe[] = [];
+    for (const [newName, pipe] of Object.entries(map)) {
+      if (pipe.name === newName) {
+        pipes.push(pipe);
+      } else if (pipe.fixed) {
+        const nullFilter: Filter | undefined = NullFilterMap[pipe.mediaType];
+        if (nullFilter === undefined) {
+          if (pipe.mediaType === 'unknown') {
+            throw new Error(`Cannot rename ${pipe.inspect()} to [${newName}]: Please use pipe.mark() to specify the pipe media type.`);
+          } else {
+            throw new Error(`Cannot rename ${pipe.inspect()} to [${newName}]: Cannot find appropriate pass filter.`);
           }
-          const redirectedChain = this.createChain([pipe]);
-          const [redirectedPipe] = redirectedChain.pipe(nullFilter);
-          redirectedPipe.as(newName);
-        } else {
-          pipe.as(newName);
         }
+        const [redirectedPipe] = this.createChain([pipe]).pipe(nullFilter);
+        pipes.push(redirectedPipe.as(newName));
+      } else {
+        pipes.push(pipe.as(newName));
       }
     }
-    return this.chains.map((chain) => this.iterateChainNode(chain).join(',')).join(';');
+    return pipes;
+  }
+
+  sinkPipes(pipes: (Pipe | null | undefined)[]) {
+    pipes.forEach((pipe) => {
+      if (pipe && pipe.boundInput && !pipe.boundOutput) {
+        const nullSink: Filter | undefined = NullSinkMap[pipe.mediaType];
+        if (nullSink === undefined) {
+          if (pipe.mediaType === 'unknown') {
+            throw new Error(`Cannot sink ${pipe.inspect()}: Please use pipe.mark() to specify the pipe media type.`);
+          } else {
+            throw new Error(`Cannot sink ${pipe.inspect()}: Cannot find appropriate sink filter.`);
+          }
+        }
+        this.createChain([pipe]).pipe(nullSink);
+      }
+    });
+  }
+
+  checkTrackingPipes() {
+    const nameMap = new Map<string, Pipe>();
+    this.trackingPipes.forEach((pipe) => {
+      const { boundInput, boundOutput, name } = pipe;
+      if (boundInput || boundOutput) {
+        const sameNamePipe = nameMap.get(name);
+        if (sameNamePipe) {
+          throw new Error(`Pipe with the same name: ${pipe.inspect()} and ${sameNamePipe.inspect()}`);
+        }
+        nameMap.set(name, pipe);
+      }
+    });
+    this.trackingPipes.forEach((pipe) => {
+      const { boundInput, boundOutput } = pipe;
+      if (boundInput !== boundOutput) {
+        if (!boundInput) {
+          throw new Error(`Pipe ${pipe.inspect()} is not bound to any output`);
+        } else if (!boundOutput) {
+          throw new Error(`Pipe ${pipe.inspect()} is not bound to any input`);
+        }
+      }
+    });
+  }
+
+  toString() {
+    return this.chains
+      .map((chain) => {
+        const nodes = this.iterateChainNode(chain);
+        const strippedNodes = nodes.filter((n) => n.filter !== null);
+        if (strippedNodes.length === 0) {
+          return null;
+        }
+        return strippedNodes.join(',');
+      })
+      .filter((s) => s !== null)
+      .join(';');
+  }
+
+  complete(exports?: Record<string, Pipe>) {
+    if (exports) {
+      this.renamePipes(exports).forEach((p) => p.setBoundOutput());
+    }
+    this.checkTrackingPipes();
+    this.completed = true;
+    return this.toString();
   }
 }
 
@@ -412,7 +608,10 @@ export function filterComplex(f: (c: FilterComplexContext) => void | Record<stri
   const c = helper.getContext();
   const result = f(c);
   if (result?.then && !(result.then instanceof Pipe)) {
-    return result.then((r) => helper.toString(r as (undefined | Record<string, Pipe>)));
+    return result.then((r) => helper.complete(r as (undefined | Record<string, Pipe>)));
   }
-  return helper.toString(result as (undefined | Record<string, Pipe>));
+  return helper.complete(result as (undefined | Record<string, Pipe>));
 }
+
+export type { ChainNode, Pipe, FilterFunction, Filter, PipeMediaType };
+

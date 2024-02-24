@@ -3,6 +3,7 @@ import getMediaInfo from 'ffprobe';
 import { waitForProcess } from './common';
 
 export async function ffmpeg(args: string[]): Promise<void> {
+  console.log(`ffmpeg ${args.join(' ')}`);
   await waitForProcess(
     spawn('ffmpeg', args, {
       stdio: 'inherit',

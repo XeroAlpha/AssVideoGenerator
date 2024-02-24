@@ -61,4 +61,4 @@ export function useStyledClass<K extends string>(...styleMaps: PartialStyleMap<K
   };
 }
 
-export type Styler = ReturnType<typeof useStyledClass>;
+export type Styler<K extends string = string> = ReturnType<typeof useStyledClass<K>>;

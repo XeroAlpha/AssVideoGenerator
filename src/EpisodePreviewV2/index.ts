@@ -42,7 +42,13 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   let resolution = { width: 1920, height: 1080 };
   let videoDuration = 0;
   let previewPosition: string | undefined;
-  if (meta.videoFile) {
+  let background = null;
+  const images = expandList(meta.templateOptions.images || '');
+  const interval = parseDuration(meta.templateOptions.interval || '');
+  const textDuration = parseDuration(meta.templateOptions.textDuration || '');
+  const transition = parseDuration(meta.templateOptions.transition || '');
+  const ending = parseDuration(meta.templateOptions.ending || '');
+  if (meta.videoFile && !meta.templateOptions.detached) {
     const mediaInfo = await ffprobe(meta.videoFile);
     origFps = getFPS(mediaInfo);
     fps = meta.templateOptions.fps ? parseInt(meta.templateOptions.fps, 10) : origFps;
@@ -68,19 +74,15 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       videoShotPath,
     ]);
     cx.server.setFile('video_shot', videoShotPath);
+  } else {
+    background = meta.templateOptions.background || images[0];
   }
-  const images = expandList(meta.templateOptions.images || '');
-  const background = meta.templateOptions.background || images[images.length - 1];
-  const interval = parseDuration(meta.templateOptions.interval || '');
-  const textDuration = parseDuration(meta.templateOptions.textDuration || '');
-  const transition = parseDuration(meta.templateOptions.transition || '');
-  const ending = parseDuration(meta.templateOptions.ending || '');
   return {
     entryPoint: resolvePath(__dirname, './Video.tsx'),
     compositionId: 'EpisodePreview',
     inputProps: {
       fps,
-      remapFps: origFps === fps ? undefined : origFps,
+      remapFps: origFps !== fps,
       resolution,
       previewPosition,
       images,
@@ -121,13 +123,13 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
         previewVideoFile,
         '-filter_complex',
         await filterComplex(async ({ from, input, filter }) => {
-          const [videoVideo] = from(input[0].v).pipe(filter.ass([subtitleInTmpDir]));
-          let previewVideo = input[1].v;
+          let [videoVideo] = from(input[0].v).pipe(filter.ass([subtitleInTmpDir]));
+          const previewVideo = input[1].v;
           let videoAudio = input[0].a;
           let previewAudio = input[1].a;
           if (renderOptions.inputProps.remapFps) {
-            [previewVideo] = from(previewVideo).pipe(filter.minterpolate({
-              'fps': renderOptions.inputProps.remapFps,
+            [videoVideo] = from(videoVideo).pipe(filter.minterpolate({
+              'fps': renderOptions.inputProps.fps,
               'mi_mode': 'dup'
             }));
           }

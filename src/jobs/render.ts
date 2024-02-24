@@ -1,6 +1,7 @@
-import { existsSync } from 'fs';
 import { bundle } from '@remotion/bundler';
-import { selectComposition, renderMedia } from '@remotion/renderer';
+import { renderMedia, selectComposition } from '@remotion/renderer';
+import { existsSync } from 'fs';
+import { cpus } from 'os';
 import { RenderContext, RenderOptions } from '../main';
 
 export async function render(cx: RenderContext, renderOptions: RenderOptions, outputLocation: string): Promise<void> {
@@ -46,6 +47,7 @@ export async function render(cx: RenderContext, renderOptions: RenderOptions, ou
       );
     },
     enforceAudioTrack: true,
+    concurrency: cpus().length,
     logLevel: 'verbose',
     ...browserConfig,
   });

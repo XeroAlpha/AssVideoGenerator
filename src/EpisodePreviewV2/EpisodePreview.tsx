@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef } from 'react';
-import { AbsoluteFill, Audio, Easing, Img, Sequence, spring, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, Easing, Img, spring, useCurrentFrame } from 'remotion';
 import { getUrl, toUrlIfNecessary } from '../utils/staticServerApi';
-import { style, StyleMap, useStyledClass } from '../utils/style';
+import { mergeStyleMap, style, StyleMap, useStyledClass } from '../utils/style';
+import { AirDustView } from './AirDustView';
+import { AudioWaveform } from './AudioWaveform';
 import { calculateFrameCounts, InputProps } from './Video';
 
 function clamp(v: number, min: number, max: number): number {
@@ -46,6 +48,7 @@ const Styles = {
     justifyContent: 'center',
   }),
   rightBar: style({
+    position: 'relative',
     marginRight: '-100px',
     flexGrow: '1',
     flexShrink: '0',
@@ -173,6 +176,44 @@ const Styles = {
   darkenOverlay: style({
     zIndex: '100',
   }),
+  bgmBarContainer: style({
+    position: 'absolute',
+    right: '100px',
+    bottom: '0px',
+    width: '100%',
+    height: '70%',
+    flexDirection: 'column-reverse',
+    alignItems: 'flex-end',
+    zIndex: '9',
+  }),
+  bgmAbove: style({
+    zIndex: '10'
+  }),
+  bgmBar: style({
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    filter: 'blur(10px)'
+  }),
+  airDustContainer: style({
+    position: 'absolute',
+    zIndex: 1,
+    left: '0px',
+    top: '0px',
+    width: '100%',
+    height: '100%'
+  }),
+  dustViewContainer: style({
+    position: 'absolute',
+    left: '0px',
+    top: '0px',
+    width: '100%',
+    height: '100%'
+  }),
+  dustViewDust: style({
+    width: '2px',
+    height: '2px',
+    borderRadius: '1000px',
+    background: 'white'
+  })
 };
 
 function typewriter(text: string, len: number) {
@@ -261,25 +302,38 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       };
     }
   }
-  const darkenProgress = meta.previewPosition === 'start' ? introProgress : endingProgress;
-  const videoTransitionProgress = meta.previewPosition === 'start' ? endingProgress : introProgress;
-  const videoTransitionSpring = spring({
-    frame: meta.previewPosition === 'start' ? frameCountMeta.durationInFrames - frame : frame,
-    fps: meta.fps,
-    durationInFrames: frameCountMeta.transitionInFrames * 2,
-    config: { mass: 0.8, stiffness: 50 },
-  });
-  const styled = useStyledClass(
+  let darkenProgress = endingProgress;
+  let videoTransitionProgress = introProgress;
+  const videoTransitionSpringDuration = frameCountMeta.transitionInFrames * 2;
+  let videoTransitionSpring: number;
+  if (meta.previewPosition === 'start') {
+    darkenProgress = introProgress;
+    videoTransitionProgress = endingProgress;
+    videoTransitionSpring = 1 - spring({
+      frame: frame - frameCountMeta.durationInFrames + videoTransitionSpringDuration,
+      fps: meta.fps,
+      durationInFrames: videoTransitionSpringDuration,
+      config: { mass: 0.8, stiffness: 10 },
+    });
+  } else {
+    videoTransitionSpring = spring({
+      frame,
+      fps: meta.fps,
+      durationInFrames: videoTransitionSpringDuration,
+      config: { mass: 0.8, stiffness: 50 },
+    });
+  }
+  const styles = mergeStyleMap(
     Styles,
     {
       backgroundVideoTransition: style({
         filter: `blur(${videoTransitionProgress * 10}px)`,
       }),
       leftBarAnimation: style({
-        transform: `translateX(${(videoTransitionSpring - 1) * 100}%)`,
+        transform: `translateX(calc((100% - 40px) * ${videoTransitionSpring - 1}))`,
       }),
       rightBarAnimation: style({
-        transform: `translateX(calc((100% - 100px) * ${1 - videoTransitionSpring}))`,
+        transform: `translateX(calc((100% - 80px) * ${1 - videoTransitionSpring}))`,
       }),
       darkenTransition: style({
         backdropFilter: `brightness(${darkenProgress * 100}%) blur(${(1 - darkenProgress) * 10}px)`,
@@ -295,10 +349,14 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       }),
       ...imageAnimateStyles,
       ...staffItemAnimateStyles,
+      dustViewContainer: style({
+        opacity: `${videoTransitionProgress * 100}%`
+      }),
     },
     meta.extraStyles
   );
-  const backgroundUrl = getUrl('video_shot');
+  const styled = useStyledClass(styles);
+  const backgroundUrl = meta.background ? toUrlIfNecessary(meta.background) : getUrl('video_shot');
   const staffDOMRef = useRef<HTMLDivElement | null>(null);
   const descDOMRef = useRef<HTMLDivElement | null>(null);
   const easeOutCubic = Easing.out(Easing.cubic);
@@ -324,6 +382,14 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       <AbsoluteFill>
         <Img src={backgroundUrl} {...styled('background', 'backgroundVideoTransition')} />
       </AbsoluteFill>
+      <AirDustView
+        width={meta.resolution.width * (1 + meta.images.length * 0.05)}
+        height={meta.resolution.height}
+        offsetX={imageProgress * meta.resolution.width * 0.05}
+        dustPerSeconds={10}
+        seed={meta.title}
+        extraStyles={styles}
+      />
       <AbsoluteFill {...styled('container')}>
         <div {...styled('leftBar', 'leftBarAnimation')}>
           <div {...styled('previewArea')}>
@@ -360,26 +426,29 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
           ) : null}
         </div>
         <div {...styled('rightBar', 'darken', 'rightBarAnimation')}>
-          <div {...styled('text', 'episodeName')}>{episodeName}</div>
-          <div {...styled('text', 'title')}>{title}</div>
-          <div {...styled('seperator', 'seperator1Animation')} />
-          <div ref={descDOMRef} {...styled('description')}>
-            <div {...styled('text', 'descriptionInside')}>{description}</div>
+          {meta.bgm ? (
+            <AudioWaveform
+              src={toUrlIfNecessary(meta.bgm.src)}
+              startFrom={meta.bgm.start}
+              volume={(frame) => Math.min(
+                clampOne(frame / frameCountMeta.transitionInFrames),
+                clampOne((frameCountMeta.durationInFrames - frame) / frameCountMeta.endingInFrames)
+              )}
+              barSizeProp="width"
+              extraStyles={styles}
+            />
+          ) : null}
+          <div {...styled('text', 'episodeName', 'bgmAbove')}>{episodeName}</div>
+          <div {...styled('text', 'title', 'bgmAbove')}>{title}</div>
+          <div {...styled('seperator', 'bgmAbove', 'seperator1Animation')} />
+          <div ref={descDOMRef} {...styled('description', 'bgmAbove')}>
+            <div {...styled('text', 'descriptionInside', 'bgmAbove')}>{description}</div>
           </div>
-          <div {...styled('seperator', 'seperator2Animation')} />
-          <div {...styled('text', 'infoText')}>{info}</div>
+          <div {...styled('seperator', 'bgmAbove', 'seperator2Animation')} />
+          <div {...styled('text', 'infoText', 'bgmAbove')}>{info}</div>
         </div>
       </AbsoluteFill>
-      {endingProgress < 1 ? <AbsoluteFill {...styled('darkenOverlay', 'darkenTransition')} /> : null}
-      {meta.bgm ? (
-        <Sequence name="BGM" style={{ display: 'none' }}>
-          <Audio
-            src={toUrlIfNecessary(meta.bgm.src)}
-            startFrom={Math.floor(meta.bgm.start * meta.fps)}
-            volume={() => Math.min(introProgress, endingProgress)}
-          />
-        </Sequence>
-      ) : null}
+      {darkenProgress < 1 ? <AbsoluteFill {...styled('darkenOverlay', 'darkenTransition')} /> : null}
     </>
   );
 };
