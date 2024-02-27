@@ -49,7 +49,7 @@ const Templates: Record<string, RenderTemplate> = {
         video: meta.videoFile,
         subtitle: meta.subtitleFile,
         output: withExtension(meta.subtitleFile, '.subtitle.mp4'),
-        fps: meta.templateOptions.fps ? parseInt(meta.templateOptions.fps, 10) : undefined,
+        fps: meta.templateOptions.fps ? parseFloat(meta.templateOptions.fps) : undefined,
         supersampling: meta.templateOptions.supersampling
           ? parseInt(meta.templateOptions.supersampling, 10)
           : undefined,

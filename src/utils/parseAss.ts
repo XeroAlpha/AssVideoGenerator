@@ -1,7 +1,7 @@
 import { parse } from 'ass-compiler';
 import { readFileSync } from 'fs';
 import { resolve as resolvePath } from 'path';
-import { TemplateMeta, AssMeta } from '../main';
+import { AssMeta, TemplateMeta } from '../main';
 
 export function parseAegisubMeta(content: string) {
   const lines = content.split(/\r\n|\n|\r/g);

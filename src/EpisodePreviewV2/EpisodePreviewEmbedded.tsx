@@ -1,6 +1,6 @@
-import { AbsoluteFill, Img, spring, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame } from 'remotion';
 import { clampOne } from '../utils/interpolate';
-import { toUrlIfNecessary } from '../utils/staticServerApi';
+import { getUrl, toUrlIfNecessary } from '../utils/staticServerApi';
 import { mergeStyleMap, style, Styled, useStyledClass } from '../utils/style';
 import { AirDustView } from './AirDustView';
 import { AudioWaveform } from './AudioWaveform';
@@ -104,31 +104,40 @@ const Styles = {
   }),
 };
 
-export const EpisodePreview: React.FC<InputProps> = (meta) => {
-  const frameCountMeta = calculateFrameCounts(meta);
+export const EpisodePreviewEmbedded: React.FC<InputProps> = (meta) => {
+  const { transitionInFrames, durationInFrames, endingInFrames, intervalInFrames, videoDurationInFrames } =
+    calculateFrameCounts(meta, true);
   const frame = useCurrentFrame();
-  const introProgress = clampOne(frame / frameCountMeta.transitionInFrames);
-  const endingProgress = clampOne((frameCountMeta.durationInFrames - frame) / frameCountMeta.endingInFrames);
+  const introProgress = clampOne(frame / transitionInFrames);
+  const endingProgress = clampOne((durationInFrames - frame) / endingInFrames);
   const galleryItems: GalleryItem[] = meta.images.map((e) => ({
     type: 'image',
     src: toUrlIfNecessary(e),
-    durationInFrames: frameCountMeta.intervalInFrames,
+    durationInFrames: intervalInFrames,
   }));
+  const videoUrl = getUrl('video');
   let darkenProgress = endingProgress;
   let videoTransitionProgress = introProgress;
-  const videoTransitionSpringDuration = frameCountMeta.transitionInFrames * 2;
+  const videoTransitionSpringDuration = transitionInFrames * 2;
   let videoTransitionSpring: number;
+  let bgmSequenceStart = 0;
   if (meta.previewPosition === 'start') {
     darkenProgress = introProgress;
     videoTransitionProgress = endingProgress;
     videoTransitionSpring =
       1 -
       spring({
-        frame: frame - frameCountMeta.durationInFrames + videoTransitionSpringDuration,
+        frame: frame - durationInFrames + videoTransitionSpringDuration,
         fps: meta.fps,
         durationInFrames: videoTransitionSpringDuration,
         config: { mass: 0.8, stiffness: 10 },
       });
+    galleryItems.push({
+      type: 'video',
+      src: videoUrl,
+      durationInFrames: videoDurationInFrames + transitionInFrames,
+      hideFromProgress: true,
+    });
   } else {
     videoTransitionSpring = spring({
       frame,
@@ -136,6 +145,13 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       durationInFrames: videoTransitionSpringDuration,
       config: { mass: 0.8, stiffness: 50 },
     });
+    galleryItems.unshift({
+      type: 'video',
+      src: getUrl('video'),
+      durationInFrames: videoDurationInFrames,
+      hideFromProgress: true,
+    });
+    bgmSequenceStart += videoDurationInFrames + transitionInFrames;
   }
   const styles = mergeStyleMap(Styles, {
     backgroundVideoTransition: style({
@@ -173,29 +189,32 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       <AbsoluteFill {...styled('container')}>
         <div {...styled('leftBar', 'leftBarAnimation')}>
           <div {...styled('previewArea')}>
-            <Gallery items={galleryItems} transitionInFrames={frameCountMeta.transitionInFrames} />
+            <Gallery items={galleryItems} startFrom={transitionInFrames} transitionInFrames={transitionInFrames} />
           </div>
           {meta.staff ? (
             <StaffList
               staff={meta.staff}
-              startFrom={frameCountMeta.transitionInFrames}
-              durationInFrames={frameCountMeta.durationInFrames - frameCountMeta.transitionInFrames}
+              startFrom={transitionInFrames}
+              durationInFrames={durationInFrames - transitionInFrames}
             />
           ) : null}
         </div>
         <div {...styled('rightBar', 'darken', 'rightBarAnimation')}>
           {meta.bgm ? (
-            <AudioWaveform
-              src={toUrlIfNecessary(meta.bgm.src)}
-              startFrom={meta.bgm.start}
-              volume={(frame) =>
-                Math.min(
-                  clampOne(frame / frameCountMeta.transitionInFrames),
-                  clampOne((frameCountMeta.durationInFrames - frame) / frameCountMeta.endingInFrames)
-                )
-              }
-              barSizeProp="height"
-            />
+            <Sequence
+              from={bgmSequenceStart}
+              durationInFrames={durationInFrames - videoDurationInFrames - transitionInFrames}
+              layout="none"
+            >
+              <AudioWaveform
+                src={toUrlIfNecessary(meta.bgm.src)}
+                startFrom={meta.bgm.start}
+                volume={(frame) =>
+                  Math.min(clampOne(frame / transitionInFrames), clampOne((durationInFrames - frame) / endingInFrames))
+                }
+                barSizeProp="height"
+              />
+            </Sequence>
           ) : null}
           <InfoList
             episodeName={meta.episodeName}
@@ -204,7 +223,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
             info={meta.info}
             startFrom={meta.transition}
             descDuration={meta.interval}
-            duration={frameCountMeta.durationInFrames / meta.fps}
+            duration={durationInFrames / meta.fps}
           />
         </div>
       </AbsoluteFill>

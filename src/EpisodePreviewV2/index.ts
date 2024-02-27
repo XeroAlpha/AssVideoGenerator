@@ -1,5 +1,6 @@
 import { copyFileSync } from 'fs';
 import { resolve as resolvePath } from 'path';
+import { burnSubtitle } from '../jobs/burnSubtitle';
 import { ensureInTmpDir } from '../jobs/common';
 import { ffmpeg, ffprobe, getDuration, getFPS, getResolution } from '../jobs/ffmpeg';
 import { calculateLoudnormArgs, defaultLoudnormOptions } from '../jobs/loudnorm';
@@ -37,31 +38,34 @@ function expandList(listPattern: string): string[] {
 }
 
 async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
+  const images = expandList(meta.templateOptions.images || '');
+  const interval = parseDuration(meta.templateOptions.interval || '');
+  const transition = parseDuration(meta.templateOptions.transition || '');
+  const ending = parseDuration(meta.templateOptions.ending || '');
+  const { embedVideo } = meta.templateOptions;
   let fps = 30;
   let origFps: number | undefined;
   let resolution = { width: 1920, height: 1080 };
   let videoDuration = 0;
-  let previewPosition: string | undefined;
-  let background = null;
-  const images = expandList(meta.templateOptions.images || '');
-  const interval = parseDuration(meta.templateOptions.interval || '');
-  const textDuration = parseDuration(meta.templateOptions.textDuration || '');
-  const transition = parseDuration(meta.templateOptions.transition || '');
-  const ending = parseDuration(meta.templateOptions.ending || '');
-  if (meta.videoFile && !meta.templateOptions.detached) {
+  let previewPosition = 'end';
+  let background = meta.templateOptions.background || images[0];
+  if (meta.videoFile) {
     const mediaInfo = await ffprobe(meta.videoFile);
     origFps = getFPS(mediaInfo);
     fps = meta.templateOptions.fps ? parseInt(meta.templateOptions.fps, 10) : origFps;
     videoDuration = getDuration(mediaInfo, true);
     resolution = getResolution(mediaInfo) || resolution;
+    previewPosition = meta.templateOptions.position === 'start' ? 'start' : 'end';
+    cx.server.setFile('video', meta.videoFile);
+  }
+  if (meta.videoFile && !meta.templateOptions.previewOnly && !embedVideo) {
     const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
     const videoShotPath = resolvePath(cx.tmpDir, 'video_shot.png');
-    previewPosition = meta.templateOptions.position === 'start' ? 'start' : 'end';
     await ffmpeg([
       '-i',
       meta.videoFile,
       '-ss',
-      previewPosition === 'start' ? '0' : String(videoDuration - 1 / origFps),
+      previewPosition === 'start' ? '0' : String(videoDuration - 1 / origFps!),
       '-update',
       '1',
       '-frames:v',
@@ -73,13 +77,11 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       '-y',
       videoShotPath,
     ]);
-    cx.server.setFile('video_shot', videoShotPath);
-  } else {
-    background = meta.templateOptions.background || images[0];
+    background = cx.server.setFile('video_shot', videoShotPath);
   }
   return {
     entryPoint: resolvePath(__dirname, './Video.tsx'),
-    compositionId: 'EpisodePreview',
+    compositionId: embedVideo ? 'EpisodePreviewEmbedded' : 'EpisodePreview',
     inputProps: {
       fps,
       remapFps: origFps !== fps,
@@ -93,27 +95,37 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       info: meta.templateOptions.info,
       background,
       interval,
-      textDuration,
       transition,
       ending: isNaN(ending) ? transition : ending,
+      videoDuration,
       bgm: meta.templateOptions.bgm && {
         src: meta.templateOptions.bgm,
         start: parseTimestamp(meta.templateOptions['bgm.start'] || ''),
       },
       extraStyles: parseExtraStyles('css', meta.templateOptions),
     } as InputProps,
+    embedVideo,
   };
 }
 
 export const EpisodePreviewTemplateV2: RenderTemplate = {
   preview: getRenderOptions,
   async render(cx, meta) {
-    const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
     const previewVideoFile = resolvePath(cx.tmpDir, 'preview.mp4');
     const outputFile = withExtension(meta.subtitleFile, '.subtitle.mp4');
     const renderOptions = await getRenderOptions(cx, meta);
+    if (meta.videoFile && renderOptions.embedVideo) {
+      const assVideoFile = resolvePath(cx.tmpDir, 'subtitle.mp4');
+      cx.server.setFile('video', assVideoFile);
+      await burnSubtitle(cx, {
+        video: meta.videoFile,
+        subtitle: meta.subtitleFile,
+        output: assVideoFile,
+      });
+    }
     await render(cx, renderOptions, previewVideoFile);
-    if (meta.videoFile) {
+    if (meta.videoFile && !renderOptions.embedVideo) {
+      const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
       await ffmpeg([
         '-i',
         meta.videoFile,
@@ -123,15 +135,15 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
         previewVideoFile,
         '-filter_complex',
         await filterComplex(async ({ from, input, filter }) => {
-          let [videoVideo] = from(input[0].v).pipe(filter.ass([subtitleInTmpDir]));
-          const previewVideo = input[1].v;
-          let videoAudio = input[0].a;
-          let previewAudio = input[1].a;
+          let [{ v: videoVideo, a: videoAudio }, { v: previewVideo, a: previewAudio }] = input;
+          [videoVideo] = from(videoVideo).pipe(filter.ass([subtitleInTmpDir]));
           if (renderOptions.inputProps.remapFps) {
-            [videoVideo] = from(videoVideo).pipe(filter.minterpolate({
-              'fps': renderOptions.inputProps.fps,
-              'mi_mode': 'dup'
-            }));
+            [videoVideo] = from(videoVideo).pipe(
+              filter.minterpolate({
+                fps: renderOptions.inputProps.fps,
+                mi_mode: 'dup',
+              })
+            );
           }
           if (!meta.templateOptions.disableLoudnorm) {
             const videoLoudnormArgs = await calculateLoudnormArgs(meta.videoFile!, defaultLoudnormOptions);
@@ -141,7 +153,7 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
           }
           let concatInputs = [videoVideo, videoAudio, previewVideo, previewAudio];
           if (renderOptions.inputProps.previewPosition === 'start') {
-            concatInputs = [previewVideo, previewAudio, videoVideo, videoAudio]
+            concatInputs = [previewVideo, previewAudio, videoVideo, videoAudio];
           }
           const [finalVideo, finalAudio] = from(...concatInputs).pipe(filter.concat({ n: 2, v: 1, a: 1 }));
           return { finalVideo, finalAudio };

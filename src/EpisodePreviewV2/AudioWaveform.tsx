@@ -1,17 +1,17 @@
-import { useAudioData, visualizeAudio } from "@remotion/media-utils";
-import { Audio, useCurrentFrame, useVideoConfig } from "remotion";
-import { style, StyleMap, useStyledClass } from "../utils/style";
+import { useAudioData, visualizeAudio } from '@remotion/media-utils';
+import { Audio, useCurrentFrame, useVideoConfig } from 'remotion';
+import { style, useStyledClass } from '../utils/style';
 
 type VolumeCallback = (frame: number) => number;
 
 const Styles = {
   bgmBarContainer: style({
-    display: 'flex'
+    display: 'flex',
   }),
   bgmBar: style({
     flexGrow: '1',
-    flexShrink: '1'
-  })
+    flexShrink: '1',
+  }),
 };
 
 function convertToLogForm(sampled: number[], mapRatio: number, downsample: number) {
@@ -35,36 +35,36 @@ function convertToLogForm(sampled: number[], mapRatio: number, downsample: numbe
 
 export const AudioWaveform: React.FC<{
   src: string;
-  startFrom: number;
-  volume: VolumeCallback;
-  extraStyles?: StyleMap;
+  startFrom?: number;
+  volume?: VolumeCallback;
   barSizeProp?: string;
-}> = ({ src, startFrom, volume, extraStyles, barSizeProp }) => {
+}> = ({ src, startFrom, volume, barSizeProp }) => {
+  const startFromWithDefault = startFrom ?? 0;
+  const volumeWithDefault = volume ?? (() => 1);
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const styled = useStyledClass(Styles, extraStyles ?? {});
+  const styled = useStyledClass(Styles);
   const audioData = useAudioData(src);
   if (!audioData) {
     return null;
   }
-  const visualization = convertToLogForm(visualizeAudio({
-    fps,
-    frame: frame + startFrom * fps,
-    audioData,
-    numberOfSamples: 1024
-  }), 2, 128);
+  const visualization = convertToLogForm(
+    visualizeAudio({
+      fps,
+      frame: frame + startFromWithDefault * fps,
+      audioData,
+      numberOfSamples: 1024,
+    }),
+    2,
+    128
+  );
   return (
     <>
-      <Audio
-        src={src}
-        startFrom={Math.floor(startFrom * fps)}
-        volume={(f) => volume(f)}
-      />
+      <Audio src={src} startFrom={Math.floor(startFromWithDefault * fps)} volume={(f) => volumeWithDefault(f)} />
       <div {...styled('bgmBarContainer')}>
         {visualization.map((v, i) => {
-          return (
-            <div key={i} {...styled('bgmBar', { [barSizeProp ?? 'height']: `${v * volume(frame) * 100}%` })} />
-          );
+          const finalVolume = v * volumeWithDefault(frame) || 0;
+          return <div key={i} {...styled('bgmBar', { [barSizeProp ?? 'height']: `${finalVolume * 100}%` })} />;
         })}
       </div>
     </>

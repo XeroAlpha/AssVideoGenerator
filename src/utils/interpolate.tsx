@@ -38,3 +38,11 @@ export function interpolateClamp(
     extrapolateRight: 'clamp',
   });
 }
+
+export function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
+export function clampOne(v: number): number {
+  return clamp(v, 0, 1);
+}

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { AbsoluteFill, Audio, Easing, Img, Sequence, useCurrentFrame, useVideoConfig, Video } from 'remotion';
+import { AbsoluteFill, Audio, Easing, Img, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
 import { interpolateClamp } from '../utils/interpolate';
 import { paragraphToDOM } from '../utils/paragraph';
 import { toUrlIfNecessary } from '../utils/staticServerApi';
@@ -377,9 +377,9 @@ export const BangumiPV: React.FC<InputProps> = ({
     <AbsoluteFill style={style({ backgroundColor: 'black' }, extraStyles.root)}>
       <AbsoluteFill style={backgroundStyle}>
         <Sequence from={Math.floor(0.7 * fps)}>
-          <Video
+          <OffthreadVideo
+            muted
             style={extraStyles.backgroundVideo}
-            volume={0}
             src={toUrlIfNecessary(video)}
             startFrom={Math.floor(highlightTime * fps)}
           />

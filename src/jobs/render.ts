@@ -4,7 +4,12 @@ import { existsSync } from 'fs';
 import { cpus } from 'os';
 import { RenderContext, RenderOptions } from '../main';
 
-export async function render(cx: RenderContext, renderOptions: RenderOptions, outputLocation: string): Promise<void> {
+export async function render(
+  cx: RenderContext,
+  renderOptions: RenderOptions,
+  outputLocation: string,
+  concurrency?: number
+): Promise<void> {
   const { entryPoint, compositionId, inputProps } = renderOptions;
   const tty = process.stdout;
   const bundleLocation = await bundle({
@@ -47,7 +52,7 @@ export async function render(cx: RenderContext, renderOptions: RenderOptions, ou
       );
     },
     enforceAudioTrack: true,
-    concurrency: cpus().length,
+    concurrency: Math.ceil(Math.max(1, cpus().length * (concurrency ?? 0.5))),
     logLevel: 'verbose',
     ...browserConfig,
   });

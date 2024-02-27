@@ -59,7 +59,7 @@ interface ChainNode extends Iterable<Pipe> {
    * 将当前节点的输出连接至对应的管道。
    */
   connect(...pipes: Pipe[]): ChainNode;
-  /** 
+  /**
    * 将两个过滤器节点连接。
    */
   link(node: ChainNode): ChainNode;
@@ -84,7 +84,7 @@ class Pipe {
     this.fixed = fixed ?? false;
   }
 
-  /** 
+  /**
    * 为匿名管道赋予名称。
    */
   as(newName: string) {
@@ -96,7 +96,7 @@ class Pipe {
     return this;
   }
 
-  /** 
+  /**
    * 标记管道的媒体类型。
    */
   mark(mediaType: PipeMediaType) {
@@ -107,7 +107,7 @@ class Pipe {
     return this;
   }
 
-  /** 
+  /**
    * 设置管道的提示消息（用于错误提示）。
    */
   hint(hint: string) {
@@ -139,7 +139,7 @@ class Pipe {
 
   inspect() {
     if (this.hintText) {
-      return `[${this.name}](${this.hintText})`
+      return `[${this.name}](${this.hintText})`;
     }
     return `[${this.name}]`;
   }
@@ -159,8 +159,8 @@ const IterableStreamLikeArrayProto: IterableStreamLikeArray<unknown> = {
       yield this[i];
     }
     throw new Error(`Do not use spread operator on stream-like array.`);
-  }
-}
+  },
+};
 
 function createCachedGetterProxy<T extends object>(target: T, getter: (p: Exclude<keyof T, symbol>) => T[typeof p]): T {
   const cache: Record<string | symbol, T[keyof T]> = {};
@@ -175,7 +175,7 @@ function createCachedGetterProxy<T extends object>(target: T, getter: (p: Exclud
       const value = getter(p as Exclude<keyof T, symbol>);
       cache[p] = value;
       return value;
-    }
+    },
   });
 }
 
@@ -185,7 +185,7 @@ const MediaTypePrefixMap: [string, PipeMediaType][] = [
   ['a', 'audio'],
   ['s', 'subtitle'],
   ['d', 'data'],
-  ['t', 'attachment']
+  ['t', 'attachment'],
 ];
 
 const InputProxy = createCachedGetterProxy<IterableStreamLikeArray<InputFileStreamMap>>(
@@ -198,16 +198,18 @@ const InputProxy = createCachedGetterProxy<IterableStreamLikeArray<InputFileStre
         pipe.setBoundInput();
         pipe.shared = true;
         if (typeof streamSpecifier === 'string') {
-          const mediaType = MediaTypePrefixMap.find(([prefix]) => streamSpecifier === prefix || streamSpecifier.startsWith(`${prefix}:`));
+          const mediaType = MediaTypePrefixMap.find(
+            ([prefix]) => streamSpecifier === prefix || streamSpecifier.startsWith(`${prefix}:`)
+          );
           if (mediaType) {
             pipe.mark(mediaType[1]);
           }
         }
         return pipe;
-      },
+      }
     );
     return streamProxy;
-  },
+  }
 );
 
 class FileArgument {
@@ -236,12 +238,14 @@ function parseFilterArguments(args: FilterArgument[]): string {
     if (Array.isArray(arg)) {
       parts.push(...arg.map((e) => escapeFilterArgumentValue(e)));
     } else if (typeof arg === 'object') {
-      parts.push(...Object.entries(arg).map(([k, v]) => {
-        if (v instanceof FileArgument) {
-          return `/${k}=${escapeFilterArgumentValue(v.path)}`;
-        }
-        return `${k}=${escapeFilterArgumentValue(v)}`;
-      }));
+      parts.push(
+        ...Object.entries(arg).map(([k, v]) => {
+          if (v instanceof FileArgument) {
+            return `/${k}=${escapeFilterArgumentValue(v.path)}`;
+          }
+          return `${k}=${escapeFilterArgumentValue(v)}`;
+        })
+      );
     } else {
       parts.push(escapeFilterArgumentValue(arg));
     }
@@ -279,25 +283,22 @@ class Filter {
   }
 }
 
-const FilterProxy = createCachedGetterProxy<Record<string, FilterFunction>>(
-  {},
-  (filterName) => {
-    return (...args: FilterArgument[]) => {
-      return new Filter(filterName as string, args);
-    };
-  },
-);
+const FilterProxy = createCachedGetterProxy<Record<string, FilterFunction>>({}, (filterName) => {
+  return (...args: FilterArgument[]) => {
+    return new Filter(filterName as string, args);
+  };
+});
 const NullFilterMap: Partial<Record<PipeMediaType, Filter>> = {
   video: FilterProxy.null(),
-  audio: FilterProxy.anull()
+  audio: FilterProxy.anull(),
 };
 const NullSinkMap: Partial<Record<PipeMediaType, Filter>> = {
   video: FilterProxy.nullsink(),
-  audio: FilterProxy.anullsink()
+  audio: FilterProxy.anullsink(),
 };
 const SplitMap: Partial<Record<PipeMediaType, FilterFunction>> = {
   video: FilterProxy.split,
-  audio: FilterProxy.asplit
+  audio: FilterProxy.asplit,
 };
 
 class ChainNodeImpl implements ChainNode {
@@ -424,7 +425,7 @@ class FilterComplexHelper {
   trackingPipes = new Set<Pipe>();
   chains: ChainNodeImpl[] = [];
   completed = false;
-  
+
   createPipe(name?: string) {
     let pipe: Pipe;
     if (name) {
@@ -495,7 +496,7 @@ class FilterComplexHelper {
       split: (pipe) => this.splitPipe(pipe),
       input: InputProxy,
       filter: FilterProxy,
-      fileArgument: FileArgumentFactory
+      fileArgument: FileArgumentFactory,
     };
   }
 
@@ -523,7 +524,9 @@ class FilterComplexHelper {
         const nullFilter: Filter | undefined = NullFilterMap[pipe.mediaType];
         if (nullFilter === undefined) {
           if (pipe.mediaType === 'unknown') {
-            throw new Error(`Cannot rename ${pipe.inspect()} to [${newName}]: Please use pipe.mark() to specify the pipe media type.`);
+            throw new Error(
+              `Cannot rename ${pipe.inspect()} to [${newName}]: Please use pipe.mark() to specify the pipe media type.`
+            );
           } else {
             throw new Error(`Cannot rename ${pipe.inspect()} to [${newName}]: Cannot find appropriate pass filter.`);
           }
@@ -603,15 +606,16 @@ class FilterComplexHelper {
 
 export function filterComplex(f: (c: FilterComplexContext) => void | Record<string, Pipe>): string;
 export function filterComplex(f: (c: FilterComplexContext) => Promise<void | Record<string, Pipe>>): Promise<string>;
-export function filterComplex(f: (c: FilterComplexContext) => void | Record<string, Pipe> | Promise<void | Record<string, Pipe>>) {
+export function filterComplex(
+  f: (c: FilterComplexContext) => void | Record<string, Pipe> | Promise<void | Record<string, Pipe>>
+) {
   const helper = new FilterComplexHelper();
   const c = helper.getContext();
   const result = f(c);
   if (result?.then && !(result.then instanceof Pipe)) {
-    return result.then((r) => helper.complete(r as (undefined | Record<string, Pipe>)));
+    return result.then((r) => helper.complete(r as undefined | Record<string, Pipe>));
   }
-  return helper.complete(result as (undefined | Record<string, Pipe>));
+  return helper.complete(result as undefined | Record<string, Pipe>);
 }
 
 export type { ChainNode, Pipe, FilterFunction, Filter, PipeMediaType };
-

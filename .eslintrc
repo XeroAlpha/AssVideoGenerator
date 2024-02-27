@@ -3,6 +3,7 @@
   "parser": "@typescript-eslint/parser",
   "rules": {
     "capitalized-comments": "off",
-    "no-redeclare": "off"
+    "no-redeclare": "off",
+    "camelcase": "off"
   }
 }

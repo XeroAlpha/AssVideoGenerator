@@ -8,6 +8,7 @@ export type StyleMap<K extends string = string> = Record<K, CSSProperties | unde
 
 export type PartialStyleMap<K extends string = string> = Partial<StyleMap<K>>;
 
+/** We assume iteration of an object happens in insertion order. */
 export function mergeStyleMap<K extends string>(...styleMaps: (PartialStyleMap<K> | undefined)[]) {
   const merged = {} as StyleMap<K>;
   for (const styleMap of styleMaps) {
@@ -24,14 +25,17 @@ export function mergeStyleMap<K extends string>(...styleMaps: (PartialStyleMap<K
   return merged;
 }
 
-export const StyledContext: Context<StyleMap> = createContext({});
+export const StyledContext: Context<[StyleMap, StyleMap]> = createContext([{}, {}]);
 
 export const Styled: FC<{
   styles?: StyleMap;
-  children: ReactNode;
-}> = ({ styles, children }) => {
-  const context = useContext(StyledContext);
-  return <StyledContext.Provider value={mergeStyleMap(context, styles)}>{children}</StyledContext.Provider>;
+  importantStyles?: StyleMap;
+  children?: ReactNode;
+}> = ({ styles, importantStyles, children }) => {
+  const [contextPre, contextPost] = useContext(StyledContext);
+  const mergedPre = mergeStyleMap(contextPre, styles);
+  const mergedPost = mergeStyleMap(contextPost, importantStyles);
+  return <StyledContext.Provider value={[mergedPre, mergedPost]}>{children}</StyledContext.Provider>;
 };
 
 function splitClassName(className: string): string[] {
@@ -40,23 +44,30 @@ function splitClassName(className: string): string[] {
 
 type UnmergableString = string & NonNullable<unknown>;
 
-export function useStyledClass<K extends string>(...styleMaps: PartialStyleMap<K>[]) {
-  const context = useContext(StyledContext);
-  const mergedMap = mergeStyleMap(context, ...styleMaps);
+export function useStyledClass<K extends string>(...styleMaps: (PartialStyleMap<K> | undefined)[]) {
+  const [contextPre, contextPost] = useContext(StyledContext);
+  const mergedMap = Object.entries(mergeStyleMap(contextPre, ...styleMaps, contextPost))
+    .filter(([, style]) => style !== undefined && style !== null)
+    .map(([classNames, style]) => [new Set(splitClassName(classNames)), style]) as [Set<string>, CSSProperties][];
   return (...classOrStyles: (K | UnmergableString | CSSProperties | undefined)[]) => {
-    const classes = classOrStyles.filter((e) => typeof e === 'string') as string[];
-    const styles = classOrStyles.filter((e) => typeof e === 'object') as CSSProperties[];
-    const inheritedStyles: CSSProperties[] = [];
-    Object.entries(mergedMap).forEach(([matchClassName, style]) => {
-      if (!style) return;
-      const matchClasses = splitClassName(matchClassName);
-      if (matchClasses.every((e) => classes.includes(e))) {
-        inheritedStyles.push(style);
+    const classes = new Set<string>();
+    const styles: CSSProperties[] = [];
+    for (const classOrStyle of classOrStyles) {
+      if (typeof classOrStyle === 'object') {
+        styles.push(classOrStyle);
+      } else if (typeof classOrStyle === 'string') {
+        const founds = mergedMap.filter(([classNames]) => classNames.has(classOrStyle));
+        for (const [foundClassNames, foundStyle] of founds) {
+          if (foundClassNames.size <= 1 || [...foundClassNames].every((e) => e === classOrStyle || classes.has(e))) {
+            styles.push(foundStyle);
+          }
+        }
+        classes.add(classOrStyle);
       }
-    });
+    }
     return {
-      className: classes.join(' '),
-      style: style(...inheritedStyles, ...styles),
+      className: [...classes].join(' '),
+      style: style(...styles),
     };
   };
 }
