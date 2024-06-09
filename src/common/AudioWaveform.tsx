@@ -60,7 +60,12 @@ export const AudioWaveform: React.FC<{
   );
   return (
     <>
-      <Audio src={src} startFrom={Math.floor(startFromWithDefault * fps)} volume={(f) => volumeWithDefault(f)} />
+      <Audio
+        src={src}
+        startFrom={Math.floor(startFromWithDefault * fps)}
+        volume={(f) => volumeWithDefault(f)}
+        showInTimeline={false}
+      />
       <div {...styled('bgmBarContainer')}>
         {visualization.map((v, i) => {
           const finalVolume = v * volumeWithDefault(frame) || 0;

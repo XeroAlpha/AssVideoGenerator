@@ -4,6 +4,7 @@
   "rules": {
     "capitalized-comments": "off",
     "no-redeclare": "off",
-    "camelcase": "off"
+    "camelcase": "off",
+    "complexity": "off"
   }
 }

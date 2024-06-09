@@ -1,6 +1,7 @@
+import { filterComplex } from 'ffmpeg-filter-compose';
 import { copyFileSync } from 'fs';
 import { resolve as resolvePath } from 'path';
-import { burnSubtitle } from '../jobs/burnSubtitle';
+import { burnSubtitle, mapToArgs } from '../jobs/burnSubtitle';
 import { ensureInTmpDir } from '../jobs/common';
 import { ffmpeg, ffprobe, getDuration, getFPS, getResolution } from '../jobs/ffmpeg';
 import { calculateLoudnormArgs, defaultLoudnormOptions } from '../jobs/loudnorm';
@@ -8,8 +9,8 @@ import { render } from '../jobs/render';
 import { AssMeta, RenderContext, RenderTemplate } from '../main';
 import { parseDuration, parseTimestamp } from '../utils/duration';
 import { parseExtraStyles } from '../utils/extraStyle';
-import { filterComplex } from '../utils/ffmpegFilter';
 import { withExtension } from '../utils/fileExtensions';
+import { parseResolution } from '../utils/parsers';
 import { InputProps } from './Video';
 
 function expandList(listPattern: string): string[] {
@@ -42,30 +43,43 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
   const interval = parseDuration(meta.templateOptions.interval || '');
   const transition = parseDuration(meta.templateOptions.transition || '');
   const ending = parseDuration(meta.templateOptions.ending || '');
+  const trimEnd = meta.templateOptions.trimEnd ? parseTimestamp(meta.templateOptions.trimEnd) : -1;
   const { embedVideo } = meta.templateOptions;
   let fps = 30;
   let origFps: number | undefined;
   let resolution = { width: 1920, height: 1080 };
   let videoDuration = 0;
+  let videoResolution = resolution;
   let previewPosition = 'end';
+  let previewTimestamp = 0;
   let background = meta.templateOptions.background || images[0];
   if (meta.videoFile) {
     const mediaInfo = await ffprobe(meta.videoFile);
     origFps = getFPS(mediaInfo);
     fps = meta.templateOptions.fps ? parseInt(meta.templateOptions.fps, 10) : origFps;
     videoDuration = getDuration(mediaInfo, true);
-    resolution = getResolution(mediaInfo) || resolution;
+    videoResolution = getResolution(mediaInfo) || resolution;
+    resolution = meta.templateOptions.resolution ? parseResolution(meta.templateOptions.resolution) : videoResolution;
     previewPosition = meta.templateOptions.position === 'start' ? 'start' : 'end';
+    if (trimEnd >= 0) {
+      videoDuration = Math.min(videoDuration, trimEnd);
+    }
+    if (previewPosition === 'start') {
+      previewTimestamp = 0;
+    } else {
+      previewTimestamp = videoDuration - 1 / origFps;
+    }
     cx.server.setFile('video', meta.videoFile);
   }
   if (meta.videoFile && !meta.templateOptions.previewOnly && !embedVideo) {
     const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
     const videoShotPath = resolvePath(cx.tmpDir, 'video_shot.png');
     await ffmpeg([
+      ...mapToArgs(meta.templateOptions, 'vargs:'),
       '-i',
       meta.videoFile,
       '-ss',
-      previewPosition === 'start' ? '0' : String(videoDuration - 1 / origFps!),
+      String(previewTimestamp),
       '-update',
       '1',
       '-frames:v',
@@ -105,6 +119,8 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       extraStyles: parseExtraStyles('css', meta.templateOptions),
     } as InputProps,
     embedVideo,
+    videoResolution,
+    trimEnd,
   };
 }
 
@@ -121,12 +137,18 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
         video: meta.videoFile,
         subtitle: meta.subtitleFile,
         output: assVideoFile,
+        inputArgs: mapToArgs(meta.templateOptions, 'vargs:'),
+        outputArgs: [
+          ...(renderOptions.trimEnd >= 0 ? ['-to', String(renderOptions.trimEnd)] : []),
+        ]
       });
     }
     await render(cx, renderOptions, previewVideoFile);
     if (meta.videoFile && !renderOptions.embedVideo) {
       const subtitleInTmpDir = ensureInTmpDir(cx, meta.subtitleFile, 'subtitle');
       await ffmpeg([
+        ...mapToArgs(meta.templateOptions, 'vargs:'),
+        ...(renderOptions.trimEnd >= 0 ? ['-to', String(renderOptions.trimEnd)] : []),
         '-i',
         meta.videoFile,
         '-r',
@@ -145,6 +167,7 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
               })
             );
           }
+          [previewVideo] = from(previewVideo).pipe(filter.scale(renderOptions.videoResolution));
           if (!meta.templateOptions.disableLoudnorm) {
             const videoLoudnormArgs = await calculateLoudnormArgs(meta.videoFile!, defaultLoudnormOptions);
             const previewLoudnormArgs = await calculateLoudnormArgs(previewVideoFile, defaultLoudnormOptions);
@@ -161,6 +184,7 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
         '-ar',
         '48k',
         '-y',
+        ...mapToArgs(meta.templateOptions, 'args:'),
         '-map',
         '[finalVideo]',
         '-map',

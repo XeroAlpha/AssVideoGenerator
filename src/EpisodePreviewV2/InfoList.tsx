@@ -57,6 +57,8 @@ function typewriterFixedSpeed(text: string, speed: number, seconds: number): [JS
 
 const typewriterSpeed = 30;
 
+const easeInOutSine = Easing.inOut(Easing.sin);
+
 export const InfoList: React.FC<{
   episodeName: string;
   title: string;
@@ -92,9 +94,8 @@ export const InfoList: React.FC<{
     }),
   });
   const descDOMRef = useRef<HTMLDivElement | null>(null);
-  const easeOutCubic = Easing.out(Easing.cubic);
   useLayoutEffect(() => {
-    const progress = 1 - easeOutCubic(clampOne(seconds / duration));
+    const progress = easeInOutSine(clampOne(seconds / duration));
     const descDOM = descDOMRef.current;
     if (descDOM) {
       descDOM.scrollTop = Math.max(0, descDOM.scrollHeight - descDOM.clientHeight) * progress;

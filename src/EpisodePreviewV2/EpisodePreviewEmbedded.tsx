@@ -1,10 +1,10 @@
 import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame } from 'remotion';
+import { AirDustView } from '../common/AirDustView';
+import { AudioWaveform } from '../common/AudioWaveform';
+import { Gallery, GalleryItem } from '../common/Gallery';
 import { clampOne } from '../utils/interpolate';
 import { getUrl, toUrlIfNecessary } from '../utils/staticServerApi';
 import { mergeStyleMap, style, Styled, useStyledClass } from '../utils/style';
-import { AirDustView } from './AirDustView';
-import { AudioWaveform } from './AudioWaveform';
-import { Gallery, GalleryItem } from './Gallery';
 import { InfoList } from './InfoList';
 import { StaffList } from './StaffList';
 import { calculateFrameCounts, InputProps } from './Video';
@@ -66,6 +66,7 @@ const Styles = {
   }),
   darkenOverlay: style({
     zIndex: '100',
+    padding: '-30px -30px -30px -30px',
   }),
   bgmBarContainer: style({
     position: 'absolute',

@@ -382,11 +382,13 @@ export const BangumiPV: React.FC<InputProps> = ({
             style={extraStyles.backgroundVideo}
             src={toUrlIfNecessary(video)}
             startFrom={Math.floor(highlightTime * fps)}
+            showInTimeline={false}
           />
           <Audio
             volume={(f) => videoAnimationFunc(f + 0.7 * fps)}
             src={toUrlIfNecessary(video)}
             startFrom={Math.floor(highlightTime * fps)}
+            showInTimeline={false}
           />
         </Sequence>
       </AbsoluteFill>

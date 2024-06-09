@@ -83,6 +83,7 @@ const GalleryItemView: React.FC<{
         src={toUrlIfNecessary(item.src)}
         startFrom={item.startFrom}
         muted={item.muted}
+        showInTimeline={false}
         style={style}
         className={className}
       />

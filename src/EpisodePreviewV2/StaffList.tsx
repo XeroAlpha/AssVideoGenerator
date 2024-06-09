@@ -41,6 +41,8 @@ function splitStaff(staff: string) {
     .map((ln) => ln.split('：', 2).map((e) => e.trim()) as [string, string]);
 }
 
+const easeInOutSine = Easing.inOut(Easing.sin);
+
 export const StaffList: React.FC<{
   staff: string;
   startFrom?: number;
@@ -65,9 +67,8 @@ export const StaffList: React.FC<{
   }
   const styled = useStyledClass(Styles, staffItemAnimateStyles);
   const staffDOMRef = useRef<HTMLDivElement | null>(null);
-  const easeOutCubic = Easing.out(Easing.cubic);
   useLayoutEffect(() => {
-    const progress = 1 - easeOutCubic(clampOne(frame / durationInFrames));
+    const progress = easeInOutSine(clampOne(frame / durationInFrames));
     const staffDOM = staffDOMRef.current;
     if (staffDOM) {
       staffDOM.scrollTop = Math.max(0, staffDOM.scrollHeight - staffDOM.clientHeight) * progress;
