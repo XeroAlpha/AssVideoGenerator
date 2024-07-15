@@ -1,5 +1,4 @@
-import { Img } from 'remotion';
-import { AbsoluteFill } from 'remotion';
+import { AbsoluteFill, Img } from 'remotion';
 import { style } from '../utils/style';
 
 export const VideoShot: React.FC<{

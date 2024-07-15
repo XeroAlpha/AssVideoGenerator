@@ -15,6 +15,11 @@ const Styles = {
     objectFit: 'cover',
     zIndex: '0',
   }),
+  backgroundOverlay: style({
+    margin: '-30px',
+    width: '200%',
+    height: '200%',
+  }),
   container: style({
     display: 'flex',
     flexDirection: 'row',
@@ -66,7 +71,9 @@ const Styles = {
   }),
   darkenOverlay: style({
     zIndex: '100',
-    padding: '-30px -30px -30px -30px',
+    margin: '-30px',
+    width: '200%',
+    height: '200%',
   }),
   bgmBarContainer: style({
     position: 'absolute',
@@ -74,11 +81,14 @@ const Styles = {
     bottom: '0px',
     width: 'calc(100% - 100px)',
     height: '70%',
+    display: 'flex',
     flexDirection: 'row-reverse',
     alignItems: 'flex-end',
     zIndex: '9',
   }),
   bgmBar: style({
+    flexGrow: '1',
+    flexShrink: '1',
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
     filter: 'blur(10px)',
   }),
@@ -140,7 +150,7 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
   }
   const styles = mergeStyleMap(Styles, {
     backgroundVideoTransition: style({
-      filter: `blur(${videoTransitionProgress * 10}px)`,
+      backdropFilter: `blur(${videoTransitionProgress * 10}px)`,
     }),
     leftBarAnimation: style({
       transform: `translateX(calc((100% - 40px) * ${videoTransitionSpring - 1}))`,
@@ -162,14 +172,14 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
       <AbsoluteFill>
         <Img src={backgroundUrl} {...styled('background')} />
       </AbsoluteFill>
-      <AbsoluteFill>
-        <Img src={backgroundUrl} {...styled('background', 'backgroundVideoTransition')} />
-      </AbsoluteFill>
+      <AbsoluteFill {...styled('backgroundOverlay', 'backgroundVideoTransition')} />
       <AirDustView
         width={meta.resolution.width * (1 + meta.images.length * 0.05)}
         height={meta.resolution.height}
         dustPerSeconds={10}
         seed={meta.title}
+        dust={({ style }) => <div {...styled('dustViewDust', style)} />}
+        {...styled('dustViewContainer')}
       />
       <AbsoluteFill {...styled('container')}>
         <div {...styled('leftBar', 'leftBarAnimation')}>
@@ -195,7 +205,8 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
                   clampOne((frameCountMeta.durationInFrames - frame) / frameCountMeta.endingInFrames)
                 )
               }
-              barSizeProp="height"
+              bar={({ volume }) => <div {...styled('bgmBar', { height: `${volume * 100}%` })} />}
+              {...styled('bgmBarContainer')}
             />
           ) : null}
           <InfoList

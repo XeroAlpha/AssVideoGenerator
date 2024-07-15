@@ -1,4 +1,4 @@
-import { Img, interpolate, AbsoluteFill, Easing } from 'remotion';
+import { AbsoluteFill, Easing, Img, interpolate } from 'remotion';
 import { toUrlIfNecessary } from '../utils/staticServerApi';
 import { style } from '../utils/style';
 

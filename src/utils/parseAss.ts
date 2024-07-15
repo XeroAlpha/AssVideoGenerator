@@ -1,7 +1,18 @@
-import { parse } from 'ass-compiler';
+import { parse, ParsedASS } from 'ass-compiler';
 import { readFileSync } from 'fs';
 import { resolve as resolvePath } from 'path';
-import { AssMeta, TemplateMeta } from '../main';
+
+export type TemplateMeta = Record<string, string | undefined>;
+
+export interface AssMeta {
+  subtitleFile: string;
+  videoFile?: string;
+  audioFile?: string;
+  template: string;
+  templateOptions: TemplateMeta;
+  parsedAss: ParsedASS;
+  options: Record<string, string | TemplateMeta | undefined>;
+}
 
 export function parseAegisubMeta(content: string) {
   const lines = content.split(/\r\n|\n|\r/g);
@@ -40,13 +51,17 @@ export function extractAssMeta(subtitleFile: string) {
   const parsedAss = parse(assContent);
   const aegisubMeta = parseAegisubMeta(assContent);
   const videoFile = aegisubMeta['Video File'] && resolvePath(subtitleFile, '..', aegisubMeta['Video File']);
+  const audioFile = aegisubMeta['Audio File'] && resolvePath(subtitleFile, '..', aegisubMeta['Audio File']);
   let metaStyle = '';
   let currentTemplateMeta: TemplateMeta = {};
   const assMeta: AssMeta = {
     subtitleFile,
     videoFile,
+    audioFile,
     template: '',
     templateOptions: currentTemplateMeta,
+    parsedAss,
+    options: {},
   };
   for (const event of parsedAss.events.comment) {
     const beginMatch = metaBeginRegex.exec(event.Text.raw);
@@ -54,7 +69,7 @@ export function extractAssMeta(subtitleFile: string) {
       metaStyle = event.Style;
       currentTemplateMeta = {};
       assMeta.templateOptions = currentTemplateMeta;
-      assMeta[beginMatch[1]] = currentTemplateMeta;
+      assMeta.options[beginMatch[1]] = currentTemplateMeta;
       if (assMeta.template === '') {
         assMeta.template = beginMatch[1];
       }

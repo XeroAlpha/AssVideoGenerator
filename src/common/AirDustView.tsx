@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
-import { random, useCurrentFrame, useVideoConfig } from 'remotion';
-import { style, useStyledClass } from '../utils/style';
+import { CSSProperties, useMemo } from 'react';
+import { interpolate, random, useCurrentFrame, useVideoConfig } from 'remotion';
+import { style } from '../utils/style';
 
 interface DustOptions {
   seed: string;
   radius: number;
-  maxLength: number;
-  durationRange: [number, number];
-  opacityRange: [number, number];
+  minSpeed: number;
+  speedFunction: (rnd: number, frame: number) => number;
+  opacityFunction: (rnd: number, frame: number) => number;
+  thetaFunction: (rnd: number, frame: number) => number;
+  distanceFunction: (rnd: number, frame: number) => number;
   dustPerFrame: number;
 }
 
@@ -25,34 +27,33 @@ interface Dust {
   y: number;
 }
 
-function randomRanged(seed: string | number | null, [min, max]: [number, number]) {
-  return min + random(seed) * (max - min);
-}
-
 function useDusts(options: DustOptions, frame: number): Dust[] {
-  const { seed, radius, maxLength, durationRange, opacityRange, dustPerFrame } = options;
-  const indexRange = [Math.floor((frame - durationRange[1]) * dustPerFrame), Math.ceil(frame * dustPerFrame)];
+  const { seed, radius, minSpeed, speedFunction, opacityFunction, thetaFunction, distanceFunction, dustPerFrame } =
+    options;
+  const fromIndex = Math.floor((frame - 1 / minSpeed) * dustPerFrame);
+  const toIndex = Math.ceil(frame * dustPerFrame);
   const instances: DustInstance[] = [];
   const cache = useMemo<Record<number, DustInstance>>(
     () => ({}),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [seed, radius, maxLength, ...opacityRange, ...durationRange]
+    [seed, radius, minSpeed, speedFunction, opacityFunction, thetaFunction, distanceFunction, dustPerFrame]
   );
-  for (let i = indexRange[0]; i < indexRange[1]; i++) {
+  for (let i = fromIndex; i < toIndex; i++) {
     let instance = cache[i];
+    const startFrame = i / dustPerFrame;
     if (!instance) {
-      const theta = random(`${seed}-t-${i}`) * Math.PI * 2;
-      const length = (2 * random(`${seed}-r-${i}`) - 1) * maxLength;
+      const theta = thetaFunction(random(`${seed}-t-${i}`), startFrame);
+      const length = distanceFunction(random(`${seed}-r-${i}`), startFrame);
       const midX = Math.cos(theta) * length;
       const midY = Math.sin(theta) * length;
       const offX = -Math.sin(theta) * radius;
       const offY = Math.cos(theta) * radius;
       instance = {
-        opacity: randomRanged(`${seed}-a-${i}`, opacityRange),
-        duration: randomRanged(`${seed}-d-${i}`, durationRange),
+        opacity: opacityFunction(random(`${seed}-a-${i}`), startFrame),
+        duration: 1 / speedFunction(random(`${seed}-d-${i}`), startFrame),
         srcPoint: [midX - offX, midY - offY],
         destVec: [2 * offX, 2 * offY],
-        startFrame: i / dustPerFrame,
+        startFrame,
       };
       cache[i] = instance;
     }
@@ -71,6 +72,27 @@ function useDusts(options: DustOptions, frame: number): Dust[] {
     .filter((e): e is Dust => e !== null);
 }
 
+function useRemappedFrame(frame: number, speed?: (frame: number) => number) {
+  const totalFrames = useMemo<(number | undefined)[]>(
+    () => [0],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [speed]
+  );
+  if (!speed) {
+    return frame;
+  }
+  let firstValid = frame;
+  while (firstValid >= 0 && totalFrames[firstValid] === undefined) {
+    firstValid -= 1;
+  }
+  let currentFrame = totalFrames[firstValid] as number;
+  for (let f = firstValid + 1; f <= frame; f += 1) {
+    currentFrame += speed(f);
+    totalFrames[firstValid] = currentFrame;
+  }
+  return currentFrame;
+}
+
 const Styles = {
   dustViewDust: style({
     position: 'absolute',
@@ -82,35 +104,72 @@ const Styles = {
 export const AirDustView: React.FC<{
   width: number;
   height: number;
+  dust: React.FC<{ x: number; y: number; opacity: number; style: CSSProperties }>;
   offsetX?: number;
   offsetY?: number;
   dustPerSeconds: number;
   seed?: string;
-}> = ({ width, height, offsetX, offsetY, dustPerSeconds, seed }) => {
+  timescale?: (seconds: number) => number;
+  speed?: (rnd: number, seconds: number) => number;
+  theta?: (rnd: number, seconds: number) => number;
+  opacity?: (rnd: number, seconds: number) => number;
+  distance?: (rnd: number, seconds: number) => number;
+  style?: CSSProperties;
+  className?: string;
+}> = ({
+  width,
+  height,
+  dust: Dust,
+  offsetX,
+  offsetY,
+  dustPerSeconds,
+  seed,
+  timescale,
+  speed,
+  theta,
+  opacity,
+  distance,
+  style: styleProp,
+  className,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const styled = useStyledClass(Styles);
+  const remappedFrame = useRemappedFrame(frame, timescale ? (f) => timescale(f / fps) : undefined);
+  const maxDistance = Math.max(width, height) / 2;
   const dusts = useDusts(
     {
       seed: seed ?? 'dust',
       radius: Math.sqrt(width * width + height * height) / 2,
-      maxLength: Math.min(width, height) / 2,
-      durationRange: [8 * fps, 30 * fps],
-      opacityRange: [0.5, 1],
+      minSpeed: 1 / (30 * fps),
+      distanceFunction: distance
+        ? (rnd, frame) => distance(rnd, frame / fps)
+        : (rnd) => interpolate(rnd, [0, 1], [-maxDistance, maxDistance]),
+      speedFunction: speed
+        ? (rnd, frame) => speed(rnd, frame / fps) / fps
+        : (rnd) => interpolate(rnd, [0, 1], [1 / (30 * fps), 1 / (8 * fps)]),
+      opacityFunction: opacity
+        ? (rnd, frame) => opacity(rnd, frame / fps)
+        : (rnd) => interpolate(rnd, [0, 1], [0.5, 1]),
+      thetaFunction: theta
+        ? (rnd, frame) => theta(rnd, frame / fps)
+        : (rnd) => interpolate(rnd, [0, 1], [0, 2 * Math.PI]),
       dustPerFrame: dustPerSeconds / fps,
     },
-    frame
+    remappedFrame
+  );
+  const containerStyle = style(
+    styleProp,
+    offsetX !== 0 || offsetY !== 0 ? { transform: `translate(${-(offsetX ?? 0)}px, ${-(offsetY ?? 0)}px)` } : undefined
   );
   return (
     <>
-      <div {...styled('dustViewContainer', { transform: `translate(${-(offsetX ?? 0)}px, ${-(offsetY ?? 0)}px)` })}>
+      <div style={containerStyle} className={className}>
         {dusts.map(({ opacity, x, y }, i) => {
-          return (
-            <div
-              key={i}
-              {...styled('dustViewDust', { opacity, transform: `translate(calc(${x}px - 50%), calc(${y}px - 50%))` })}
-            />
-          );
+          const dustStyle = style(Styles.dustViewDust, {
+            opacity,
+            transform: `translate(calc(${x}px - 50%), calc(${y}px - 50%))`,
+          });
+          return <Dust key={i} x={x} y={y} opacity={opacity} style={dustStyle} />;
         })}
       </div>
     </>

@@ -138,9 +138,7 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
         subtitle: meta.subtitleFile,
         output: assVideoFile,
         inputArgs: mapToArgs(meta.templateOptions, 'vargs:'),
-        outputArgs: [
-          ...(renderOptions.trimEnd >= 0 ? ['-to', String(renderOptions.trimEnd)] : []),
-        ]
+        outputArgs: [...(renderOptions.trimEnd >= 0 ? ['-to', String(renderOptions.trimEnd)] : [])],
       });
     }
     await render(cx, renderOptions, previewVideoFile);

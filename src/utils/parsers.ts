@@ -18,3 +18,17 @@ export function parseResolution(str: string) {
   }
   return { width: NaN, height: NaN };
 }
+
+export function parseResolutionNormalized(str: string | undefined, defaultSize?: string) {
+  const defaultRes = parseResolution(defaultSize ?? '1920x1080');
+  const inputRes = parseResolution(str ?? defaultSize ?? '1920x1080');
+  const defaultRatio = defaultRes.width / defaultRes.height;
+  const inputRatio = inputRes.width / inputRes.height;
+  let scale: number;
+  if (inputRatio < defaultRatio) {
+    scale = inputRes.width / defaultRes.width;
+  } else {
+    scale = inputRes.height / defaultRes.height;
+  }
+  return { ...inputRes, scale };
+}

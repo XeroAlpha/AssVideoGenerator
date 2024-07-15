@@ -8,19 +8,12 @@ import { EpisodePreviewTemplateV2 } from './EpisodePreviewV2';
 import { HelloWorldTemplate } from './HelloWorld';
 import { burnSubtitle, mapToArgs } from './jobs/burnSubtitle';
 import { Previewer, startPreviewer } from './jobs/preview';
+import { MusicVisualizer } from './MusicVisualizer';
 import { withExtension } from './utils/fileExtensions';
-import { extractAssMeta } from './utils/parseAss';
+import { AssMeta, extractAssMeta } from './utils/parseAss';
 import { StaticServer } from './utils/staticServer';
 
-export type TemplateMeta = Record<string, string | undefined>;
-
-export interface AssMeta {
-  subtitleFile: string;
-  videoFile?: string;
-  template: string;
-  templateOptions: TemplateMeta;
-  [key: string]: string | TemplateMeta | undefined;
-}
+export { AssMeta };
 
 export interface RenderContext {
   tmpDir: string;
@@ -87,6 +80,7 @@ const Templates: Record<string, RenderTemplate> = {
   'bangumi-pv': BangumiPVTemplate,
   'episode-preview': EpisodePreviewTemplate,
   'episode-preview-v2': EpisodePreviewTemplateV2,
+  'music-visualizer': MusicVisualizer,
 };
 
 const tmpDir = mkdtempSync(joinPath(os.tmpdir(), 'remotion-'));
@@ -96,7 +90,6 @@ process.on('exit', () => {
 
 async function main(action: string, assPath: string) {
   let assMeta = extractAssMeta(assPath);
-  let assMetaString = JSON.stringify(assMeta);
   const template = Templates[assMeta.template] || Templates.default;
   const server = new StaticServer();
   const cx: RenderContext = { tmpDir, server, mode: 'render' };
@@ -120,12 +113,7 @@ async function main(action: string, assPath: string) {
             console.log(`Template is changed to '${newAssMeta.template}', please restart manaually.`);
             return;
           }
-          const newAssMetaString = JSON.stringify(newAssMeta);
-          if (assMetaString === newAssMetaString) {
-            return;
-          }
           assMeta = newAssMeta;
-          assMetaString = newAssMetaString;
           if (watchTriggerTimer) {
             clearInterval(watchTriggerTimer);
           }

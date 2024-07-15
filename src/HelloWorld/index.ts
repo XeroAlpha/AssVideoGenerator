@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'path';
 import { render } from '../jobs/render';
-import { RenderContext, RenderTemplate, AssMeta } from '../main';
+import { AssMeta, RenderContext, RenderTemplate } from '../main';
 import { withExtension } from '../utils/fileExtensions';
 
 function getRenderOptions(cx: RenderContext, meta: AssMeta) {

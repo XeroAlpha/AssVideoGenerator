@@ -186,6 +186,8 @@ export const EpisodePreviewEmbedded: React.FC<InputProps> = (meta) => {
         height={meta.resolution.height}
         dustPerSeconds={10}
         seed={meta.title}
+        dust={({ style }) => <div {...styled('dustViewDust', style)} />}
+        {...styled('dustViewContainer')}
       />
       <AbsoluteFill {...styled('container')}>
         <div {...styled('leftBar', 'leftBarAnimation')}>
@@ -213,7 +215,8 @@ export const EpisodePreviewEmbedded: React.FC<InputProps> = (meta) => {
                 volume={(frame) =>
                   Math.min(clampOne(frame / transitionInFrames), clampOne((durationInFrames - frame) / endingInFrames))
                 }
-                barSizeProp="height"
+                bar={({ volume }) => <div {...styled('bgmBar', { height: `${volume * 100}%` })} />}
+                {...styled('bgmBarContainer')}
               />
             </Sequence>
           ) : null}
