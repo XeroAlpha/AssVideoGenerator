@@ -4,17 +4,29 @@ interface LyricItem {
   start: number;
   end: number;
   text: string;
+  segments: {
+    text: string;
+    start: number;
+  }[];
+  fade?: [number, number];
+  flags: string[];
 }
 
-export const LyricsView: React.FC<{ lyrics: LyricItem[] }> = ({ lyrics }) => {
+const StartOffset = -0.1;
+const FadeDuration = 0.15;
+const MinimumDuration = 0.7;
+const LinkThreshold = 0.4;
+
+export const LyricsView: React.FC<{
+  lyrics: LyricItem[]
+}> = ({ lyrics }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const timestamp = frame / fps;
-  const startOffset = -0.1;
   let prevLyrics: LyricItem | undefined;
   let nextLyrics: LyricItem | undefined;
   for (const item of lyrics) {
-    if (item.start - startOffset <= timestamp) {
+    if (item.start - StartOffset <= timestamp) {
       if (!prevLyrics || prevLyrics.start < item.start) {
         prevLyrics = item;
       }
@@ -22,12 +34,16 @@ export const LyricsView: React.FC<{ lyrics: LyricItem[] }> = ({ lyrics }) => {
       nextLyrics = item;
     }
   }
-  if (!prevLyrics) return (<></>);
-  const linkNext = nextLyrics ? nextLyrics.start - prevLyrics.end < 0.7 : false;
-  const offsetedStart = prevLyrics.start - startOffset;
-  const extendedEnd = linkNext && nextLyrics ? nextLyrics.start - startOffset : prevLyrics.end;
-  if (timestamp > extendedEnd) return (<></>);
-  const fadeDuration = Math.min(0.15, (extendedEnd - offsetedStart) / 2);
-  const fadeProgress = Math.min(Math.max(0, timestamp - offsetedStart), Math.max(0, extendedEnd - timestamp)) / fadeDuration;
+  if (!prevLyrics) {
+    if (nextLyrics) {
+      return (<div style={{ opacity: 0 }}>{nextLyrics.text}</div>);
+    }
+    return (<></>);
+  }
+  const linkNext = nextLyrics ? nextLyrics.start - prevLyrics.end < LinkThreshold : false;
+  const offsetedStart = prevLyrics.start - StartOffset;
+  const extendedEnd = linkNext && nextLyrics ? nextLyrics.start - StartOffset : Math.max(prevLyrics.end, prevLyrics.start + MinimumDuration);
+  const fadeDuration = Math.min(FadeDuration, (extendedEnd - offsetedStart) / 2);
+  const fadeProgress = Math.min(Math.max(0, timestamp - offsetedStart), Math.max(0, extendedEnd - timestamp), fadeDuration) / fadeDuration;
   return (<div style={{ opacity: fadeProgress }}>{prevLyrics.text}</div>);
 }

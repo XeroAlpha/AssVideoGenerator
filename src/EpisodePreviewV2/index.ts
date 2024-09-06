@@ -170,7 +170,7 @@ export const EpisodePreviewTemplateV2: RenderTemplate = {
             const videoLoudnormArgs = await calculateLoudnormArgs(meta.videoFile!, defaultLoudnormOptions);
             const previewLoudnormArgs = await calculateLoudnormArgs(previewVideoFile, defaultLoudnormOptions);
             [videoAudio] = from(videoAudio).pipe(filter.loudnorm(videoLoudnormArgs));
-            [previewAudio] = from(previewAudio).pipe(filter.loudnorm(previewLoudnormArgs));
+            [previewAudio] = from(previewAudio).pipe(filter.loudnorm(previewLoudnormArgs)).pipe(filter.volume('-8dB'));
           }
           let concatInputs = [videoVideo, videoAudio, previewVideo, previewAudio];
           if (renderOptions.inputProps.previewPosition === 'start') {

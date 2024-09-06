@@ -1,7 +1,10 @@
-export const Scaler: React.FC<{
+export interface Resolution {
   width: number;
   height: number;
   scale: number;
+}
+
+export const Scaler: React.FC<Resolution & {
   children: React.ReactNode
 }> = ({ width, height, scale, children }) => (
   <div style={{

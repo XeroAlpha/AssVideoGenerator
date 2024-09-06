@@ -67,9 +67,12 @@ export async function render(
       const timeLeft = formatDuration(p.renderEstimatedTime / resolvedConcurrency);
       setStatus(`${action}: ${renderedFrames} / ${encodedFrames} / ${totalFrames} (${percentage}%) - ${timeLeft}`);
     },
+    timeoutInMilliseconds: 1e9,
     enforceAudioTrack: true,
     concurrency: extraConfig?.concurrency ?? '100%',
-    logLevel: 'verbose',
+    onBrowserLog(log) {
+      process.stdout.write(`[${log.type}] ${log.text}`);
+    },
     ...browserConfig,
     ...extraConfig
   });

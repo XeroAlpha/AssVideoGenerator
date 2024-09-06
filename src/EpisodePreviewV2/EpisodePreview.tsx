@@ -82,7 +82,7 @@ const Styles = {
     width: 'calc(100% - 100px)',
     height: '70%',
     display: 'flex',
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-end',
     zIndex: '9',
   }),
@@ -199,6 +199,11 @@ export const EpisodePreview: React.FC<InputProps> = (meta) => {
             <AudioWaveform
               src={toUrlIfNecessary(meta.bgm.src)}
               startFrom={meta.bgm.start}
+              horizontalScale="log"
+              verticalScale="linear"
+              samples={128}
+              optimizeFor="speed"
+              freqRange={[0, 15000]}
               volume={(frame) =>
                 Math.min(
                   clampOne(frame / frameCountMeta.transitionInFrames),

@@ -13,13 +13,25 @@ import { InputProps } from './Video';
 
 const Styles = {
   background: style({
-    objectFit: 'cover',
     width: '100%',
     height: '100%',
     zIndex: '0',
   }),
+  backgroundCover: style({
+    objectFit: 'cover'
+  }),
+  backgroundContain: style({
+    objectFit: 'contain'
+  }),
+  backgroundContainEnable: style({
+    display: 'none',
+    filter: 'drop-shadow(0 0 10px black)',
+    backdropFilter: 'blur(20px)'
+  }),
+  backgroundBlack: style({
+    backgroundColor: 'black'
+  }),
   backgroundOverlay: style({
-    backdropFilter: 'brightness(40%)',
     margin: '-30px',
     width: '200%',
     height: '200%',
@@ -97,6 +109,9 @@ const Styles = {
     flexDirection: 'column-reverse',
     justifyContent: 'flex-start',
   }),
+  marquee: style({
+    paddingRight: '100px'
+  }),
   mediaTitle: style({
     padding: '0px 100px 0px 5px',
     fontFamily: '"思源黑体 Medium"',
@@ -172,15 +187,23 @@ function variantText(text: string, prefix: string, styled: Styler) {
   return (<span>{...stack[0][1]}</span>);
 }
 
+function calculateFadeProgress(seconds: number, duration: number, inOutDurations: InputProps['inOutDurations']) {
+  const inProgress = interpolateClamp(seconds - inOutDurations.enterDelay, [-Number.EPSILON, inOutDurations.enterDuration], [0, 1]);
+  const outProgress = interpolateClamp(seconds - (duration - inOutDurations.exitAdvance), [-inOutDurations.exitDuration, Number.EPSILON], [1, 0]);
+  return Math.min(inProgress, outProgress);
+}
+
 export const MusicVisualizer: React.FC<InputProps> = (meta) => {
   const frame = useCurrentFrame();
-  const backgroundUrl = toUrlIfNecessary(meta.background);
-  const albumUrl = toUrlIfNecessary(meta.album);
-  const fadeProgress = Math.min(1, Math.min(frame, meta.duration * meta.fps - frame) / (meta.fps * 2));
+  const backgroundUrl = meta.background ? toUrlIfNecessary(meta.background) : null;
+  const fadeProgress = calculateFadeProgress(frame / meta.fps, meta.duration, meta.inOutDurations);
   const styles = {
     ...Styles,
-    blurInOut: {
-      filter: `blur(${30 * (1 - fadeProgress)}px)`
+    backgroundOverlayDarken: {
+      backdropFilter: `brightness(${(1 - fadeProgress * 0.6) * 100}%)`,
+    },
+    fadeInOut: {
+      opacity: fadeProgress
     }
   };
   const styled = useStyledClass(styles, meta.extraStyles);
@@ -203,8 +226,8 @@ export const MusicVisualizer: React.FC<InputProps> = (meta) => {
       volumeTimeline
         .map(({ amplitude }) => amplitude)
         .map((_, index, arr) => {
-          const rangeValues: number[] = arr.slice(Math.max(0, index - smoothRange), index + smoothRange);
-          const avg = rangeValues.reduce((sum, e) => sum + e) / (smoothRange * 2);
+          const rangeValues: number[] = arr.slice(Math.max(0, index - smoothRange), index);
+          const avg = rangeValues.reduce((sum, e) => sum + e, 0) / smoothRange;
           return interpolateClamp(avg, [0, 0.5], [0.01, 1]);
         }),
     [volumeTimeline, smoothRange]
@@ -216,76 +239,95 @@ export const MusicVisualizer: React.FC<InputProps> = (meta) => {
   return (
     <Styled styles={styles} importantStyles={meta.extraStyles}>
       <Scaler {...meta.resolution}>
-        <AbsoluteFill>
-          {meta.backgroundType === 'video' ? (
-            <OffthreadVideo muted src={backgroundUrl} {...styled('background')} />
-          ) : (
-            <Img src={backgroundUrl} {...styled('background')} />
-          )}
-        </AbsoluteFill>
-        <AbsoluteFill {...styled('backgroundOverlay')} />
-        <AirDustView
-          width={meta.resolution.width}
-          height={meta.resolution.height}
-          dustPerSeconds={20}
-          timescale={(sec) => dustSpeedTimeline[Math.floor(sec * meta.fps)] ?? 0.1}
-          theta={(rnd) => interpolate(rnd, [0, 1], [Math.PI * 0.9, Math.PI * 1.1])}
-          speed={(rnd) => interpolate(rnd, [0, 1], [1 / 10, 1 / 2])}
-          dust={({ style }) => <div {...styled('dustViewDust', style)} />}
-          {...styled('dustViewContainer')}
-        />
-        <AudioWaveform
-          src={meta.music}
-          horizontalScale="log"
-          verticalScale="linear"
-          samples={128}
-          optimizeFor="speed"
-          freqRange={[0, 15000]}
-          bar={({ volume }) => <div {...styled('bgmBar', { height: `${volume * 100}%` })} />}
-          {...styled('bgmBarContainer')}
-        />
-        <AbsoluteFill {...styled('playerCardContainer')}>
-          <div {...styled('playerCard')}>
-            <Img src={albumUrl} {...styled('playerAlbumImg')} />
-            <div {...styled('playerRightPart')}>
-              <div {...styled('mediaInfoContainer')}>
-                <Marquee
-                  single
-                  el={() => <span {...styled('mediaTitle', 'mediaTitle-cn')}>{variantText(meta.title, 'mediaTitle', styled)}</span>}
-                  width="100%"
-                  speed={meta.fps / 60}
-                  broke={meta.fps * 5}
-                />
-                <div {...styled('mediaArtistsContainer')}>
-                  {meta.artists
-                    .split('\n')
-                    .filter((t) => t.trim() !== '')
-                    .map((e, i) => (
-                      <Marquee
-                        key={i}
-                        single 
-                        el={() => <div {...styled('mediaArtists', 'mediaArtists-cn')}>{variantText(e, 'mediaArtists', styled)}</div>}
-                        width="100%"
-                        speed={meta.fps / 60}
-                        broke={meta.fps * 5}
-                      />
-                    ))}
-                </div>
-                <div {...styled('mediaLyricsContainer')}>
-                  {meta.lyricTracks
-                    .map((e, i) => (
-                      <div key={i} {...styled('mediaLyrics', `mediaLyrics-${i + 1}`, {
-                        fontFamily: e.fontName ? `"${e.fontName}"` : undefined,
-                        fontSize: e.fontSize ? `${e.fontSize}px` : undefined
-                      })}>
-                        <LyricsView lyrics={e.lyrics} />
-                      </div>
-                    ))}
+        {backgroundUrl ? (
+          <>
+            <AbsoluteFill>
+              {meta.backgroundType === 'video' ? (
+                <OffthreadVideo muted src={backgroundUrl} {...styled('background', 'backgroundCover')} />
+              ) : (
+                <Img src={backgroundUrl} {...styled('background', 'backgroundCover')} />
+              )}
+            </AbsoluteFill>
+            <AbsoluteFill {...styled('backgroundContainEnable')}>
+              {meta.backgroundType === 'video' ? (
+                <OffthreadVideo muted src={backgroundUrl} {...styled('background', 'backgroundContain')} />
+              ) : (
+                <Img src={backgroundUrl} {...styled('background', 'backgroundContain')} />
+              )}
+            </AbsoluteFill>
+          </>
+        ) : (
+          <AbsoluteFill {...styled('background', 'backgroundBlack')} />
+        )}
+        <AbsoluteFill {...styled('backgroundOverlay', 'backgroundOverlayDarken')} />
+        <div {...styled('fadeInOut')}>
+          {meta.backgroundType === 'image' ? (
+            <AirDustView
+              width={meta.resolution.width}
+              height={meta.resolution.height}
+              dustPerSeconds={20}
+              timescale={(sec) => dustSpeedTimeline[Math.floor(sec * meta.fps)] ?? 0.1}
+              theta={(rnd) => interpolate(rnd, [0, 1], [Math.PI * 0.9, Math.PI * 1.1])}
+              speed={(rnd) => interpolate(rnd, [0, 1], [1 / 10, 1 / 2])}
+              dust={({ style }) => <div {...styled('dustViewDust', style)} />}
+              {...styled('dustViewContainer')}
+            />
+          ) : null}
+          <AudioWaveform
+            src={meta.music}
+            horizontalScale="log"
+            verticalScale="linear"
+            samples={128}
+            optimizeFor="speed"
+            freqRange={[0, 15000]}
+            bar={({ volume }) => <div {...styled('bgmBar', { height: `${volume * 100}%` })} />}
+            {...styled('bgmBarContainer')}
+          />
+          <AbsoluteFill {...styled('playerCardContainer')}>
+            <div {...styled('playerCard')}>
+              {meta.album ? (
+                <Img src={toUrlIfNecessary(meta.album)} {...styled('playerAlbumImg')} />
+              ) : null}
+              <div {...styled('playerRightPart')}>
+                <div {...styled('mediaInfoContainer')}>
+                  <Marquee
+                    single
+                    el={() => <span {...styled('mediaTitle', 'marquee', 'mediaTitle-cn')}>{variantText(meta.title, 'mediaTitle', styled)}</span>}
+                    width="100%"
+                    speed={meta.fps / 60}
+                    broke={meta.fps * 5}
+                  />
+                  <div {...styled('mediaArtistsContainer')}>
+                    {meta.artists
+                      .split('\n')
+                      .filter((t) => t.trim() !== '')
+                      .map((e, i) => (
+                        <Marquee
+                          key={i}
+                          single 
+                          el={() => <div {...styled('mediaArtists', 'marquee', 'mediaArtists-cn')}>{variantText(e, 'mediaArtists', styled)}</div>}
+                          width="100%"
+                          speed={meta.fps / 60}
+                          broke={meta.fps * 5}
+                        />
+                      ))}
+                  </div>
+                  <div {...styled('mediaLyricsContainer')}>
+                    {meta.lyricTracks
+                      .map((e, i) => (
+                        <div key={i} {...styled('mediaLyrics', {
+                          fontFamily: e.fontName ? `"${e.fontName}"` : undefined,
+                          fontSize: e.fontSize ? `${e.fontSize}px` : undefined
+                        }, `mediaLyrics-${i + 1}`)}>
+                          <LyricsView lyrics={e.lyrics} />
+                        </div>
+                      ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </AbsoluteFill>
+          </AbsoluteFill>
+        </div>
       </Scaler>
     </Styled>
   );

@@ -12,22 +12,35 @@ export const inputPropsSchema = z.object({
     scale: z.number().positive(),
   }),
   music: z.string(),
-  album: z.string(),
+  album: z.string().optional(),
   title: z.string(),
   artists: z.string(),
-  background: z.string(),
+  background: z.string().optional(),
   backgroundType: z.enum(['image', 'video']),
   duration: z.number(),
+  inOutDurations: z.object({
+    enterDelay: z.number(),
+    enterDuration: z.number(),
+    exitDuration: z.number(),
+    exitAdvance: z.number()
+  }),
   lyricTracks: z.array(
     z.object({
       fontName: z.string().optional(),
       fontSize: z.number().optional(),
       lyrics: z.array(
         z.object({
+          track: z.number(),
           start: z.number(),
           end: z.number(),
-          track: z.number(),
           text: z.string(),
+          segments: z.array(
+            z.object({
+              start: z.number(),
+              text: z.string(),
+            })
+          ),
+          flags: z.array(z.string())
         })
       )
     })

@@ -22,9 +22,10 @@ const Styles = {
     fontSize: '35px',
     flex: '0 1 auto',
     overflowY: 'hidden',
+    margin: '0px -10px 0px -10px'
   }),
   descriptionInside: style({
-    padding: '20px 0px',
+    padding: '20px 10px',
   }),
   infoText: style({
     fontSize: '35px',

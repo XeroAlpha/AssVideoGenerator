@@ -46,14 +46,14 @@ type UnmergableString = string & NonNullable<unknown>;
 
 export function useStyledClass<K extends string>(...styleMaps: (PartialStyleMap<K> | undefined)[]) {
   const [contextPre, contextPost] = useContext(StyledContext);
-  const mergedMap = Object.entries(mergeStyleMap(contextPre, ...styleMaps, contextPost))
+  const mergedMap = Object.entries(mergeStyleMap(contextPre as StyleMap<K>, ...styleMaps, contextPost as StyleMap<K>))
     .filter(([, style]) => style !== undefined && style !== null)
     .map(([classNames, style]) => [new Set(splitClassName(classNames)), style]) as [Set<string>, CSSProperties][];
-  return (...classOrStyles: (K | UnmergableString | CSSProperties | undefined)[]) => {
+  return (...classOrStyles: (K | UnmergableString | CSSProperties | null | undefined)[]) => {
     const classes = new Set<string>();
     const styles: CSSProperties[] = [];
     for (const classOrStyle of classOrStyles) {
-      if (typeof classOrStyle === 'object') {
+      if (typeof classOrStyle === 'object' && classOrStyle !== null) {
         styles.push(classOrStyle);
       } else if (typeof classOrStyle === 'string') {
         const founds = mergedMap.filter(([classNames]) => classNames.has(classOrStyle));

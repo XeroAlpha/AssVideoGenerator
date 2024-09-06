@@ -24,15 +24,74 @@ function getLyrics(meta: AssMeta, trackNames: string[]) {
     const trackIndex = trackNames.indexOf(line.Style);
     if (trackIndex >= 0) {
       const lyricTrack = lyricTracks[trackIndex];
+      const segments = [{ start: line.Start, text: '' }];
+      let nextSegmentStart = line.Start;
+      line.Text.parsed.forEach((fragment) => {
+        const tags = Object.assign({}, ...fragment.tags);
+        const lastSegment = segments[segments.length - 1];
+        lastSegment.text += fragment.text;
+        if (tags.k !== undefined) {
+          segments.push({ start: nextSegmentStart, text: '' });
+          nextSegmentStart += Number(tags.k) / 100;
+        }
+      });
       lyricTrack.lyrics.push({
         start: line.Start,
         end: line.End,
         track: trackIndex,
-        text: line.Text.raw,
+        text: line.Text.combined,
+        segments,
+        flags: []
       });
     }
   }
   return lyricTracks;
+}
+
+function parseInOutDurations(str: string | undefined): InputProps['inOutDurations'] {
+  if (str) {
+    const parts = str.split(' ').map((e) => Number(e));
+    if (parts.every((e) => !Number.isNaN(e))) {
+      if (parts.length === 1) {
+        return {
+          enterDuration: parts[0],
+          exitDuration: parts[0],
+          enterDelay: 0,
+          exitAdvance: 0
+        };
+      }
+      if (parts.length === 2) {
+        return {
+          enterDuration: parts[0],
+          exitDuration: parts[1],
+          enterDelay: 0,
+          exitAdvance: 0
+        };
+      }
+      if (parts.length === 3) {
+        return {
+          enterDuration: parts[0],
+          exitDuration: parts[1],
+          enterDelay: parts[2],
+          exitAdvance: parts[2]
+        };
+      }
+      if (parts.length === 4) {
+        return {
+          enterDuration: parts[0],
+          exitDuration: parts[1],
+          enterDelay: parts[2],
+          exitAdvance: parts[3]
+        };
+      }
+    }
+  }
+  return {
+    enterDuration: 0,
+    exitDuration: 0,
+    enterDelay: 0,
+    exitAdvance: 0
+  };
 }
 
 async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
@@ -52,13 +111,14 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       fps: parseInt(meta.templateOptions.fps ?? '60', 10),
       resolution: parseResolutionNormalized(meta.templateOptions.resolution),
       music: musicUrl,
-      album: meta.templateOptions.album ?? '',
-      background: videoFile ?? meta.templateOptions.background ?? meta.templateOptions.album ?? '',
+      album: meta.templateOptions.album,
+      background: videoFile ?? meta.templateOptions.background ?? meta.templateOptions.album,
       backgroundType,
       title: meta.templateOptions.title ?? '',
       artists: meta.templateOptions.artists ?? '',
       lyricTracks: getLyrics(meta, trackNames),
       duration,
+      inOutDurations: parseInOutDurations(meta.templateOptions.fade),
       extraStyles: parseExtraStyles('css', meta.templateOptions),
     } as InputProps,
   };
@@ -68,7 +128,7 @@ export const MusicVisualizer: RenderTemplate = {
   preview: getRenderOptions,
   async render(cx, meta) {
     const previewVideoFile = resolvePath(cx.tmpDir, 'preview.mp4');
-    const outputFile = withExtension(meta.subtitleFile, '.subtitle.mp4');
+    const outputFile = withExtension(meta.subtitleFile, meta.templateOptions.extension ?? '.subtitle.mp4');
     const renderOptions = await getRenderOptions(cx, meta);
     await render(cx, renderOptions, previewVideoFile, { muted: true, enforceAudioTrack: false });
     await ffmpeg([
