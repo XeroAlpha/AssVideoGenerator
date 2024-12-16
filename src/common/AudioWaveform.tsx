@@ -5,21 +5,25 @@ import { clamp, interpolateClamp } from '../utils/interpolate';
 
 type VolumeCallback = (frame: number) => number;
 
-function convertToLogForm(sampled: number[], mapRatio: number, downsample: number) {
-  const remap = (v: number) => (v / downsample) ** mapRatio * sampled.length;
-  const ret = new Array<number>(downsample);
-  for (let i = 0; i < downsample; i++) {
+function convertToLogForm(sampled: number[], mapRatio: number, sampleRange: [number, number], targetSamples: number) {
+  const remap = (v: number) => (v / targetSamples) ** mapRatio * sampled.length;
+  const ret = new Array<number>(sampleRange[1] - sampleRange[0]);
+  for (let i = sampleRange[0]; i < sampleRange[1]; i++) {
     const from = clamp(remap(i), 0, sampled.length - 1);
     const to = clamp(remap(i + 1), 0, sampled.length - 1);
     const intFrom = Math.floor(from);
     const intTo = Math.floor(to);
     let sum = 0;
-    sum += sampled[intFrom] * (intFrom + 1 - from);
-    for (let j = intFrom + 1; j < intTo; j++) {
-      sum += sampled[j];
+    if (intFrom === intTo) {
+      sum += sampled[intFrom] * (to - from);
+    } else {
+      sum += sampled[intFrom] * (intFrom + 1 - from);
+      for (let j = intFrom + 1; j < intTo; j++) {
+        sum += sampled[j];
+      }
+      sum += sampled[intTo] * (to - intTo);
     }
-    sum += sampled[intTo] * (to - intTo);
-    ret[i] = sum;
+    ret[i - sampleRange[0]] = sum;
   }
   return ret;
 }
@@ -63,6 +67,7 @@ export const AudioWaveform: React.FC<{
   const fftRange = freqRange
     ? [freqRange[0] / audioData.sampleRate, freqRange[1] / audioData.sampleRate]
     : [0, Infinity];
+  const maxSamples = 2 ** Math.floor(2 + Math.log2(audioData.sampleRate / fps));
   let visualization: number[];
   if (horizontalScale === 'linear') {
     visualization = visualizeAudio({
@@ -77,7 +82,8 @@ export const AudioWaveform: React.FC<{
       Math.ceil(fftRange[1] * samplesOrDefault)
     );
   } else {
-    const numberOfSamples = (samplesOrDefault * samplesOrDefault) / 4;
+    const targetSamples = 2 ** Math.floor(Math.log2((samplesOrDefault * samplesOrDefault) / 4));
+    const numberOfSamples = Math.min(maxSamples, targetSamples);
     visualization = visualizeAudio({
       fps,
       frame: frame + startFromWithDefault * fps,
@@ -89,7 +95,7 @@ export const AudioWaveform: React.FC<{
       Math.floor(fftRange[0] * numberOfSamples),
       Math.ceil(fftRange[1] * numberOfSamples)
     );
-    visualization = convertToLogForm(visualization, 2, samplesOrDefault);
+    visualization = convertToLogForm(visualization, 2, [0, samplesOrDefault], samplesOrDefault);
   }
   if (verticalScale === 'log') {
     visualization = visualization.map((e) => {

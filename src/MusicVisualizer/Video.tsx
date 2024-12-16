@@ -17,6 +17,7 @@ export const inputPropsSchema = z.object({
   artists: z.string(),
   background: z.string().optional(),
   backgroundType: z.enum(['image', 'video']),
+  backgroundOffset: z.number().optional(),
   duration: z.number(),
   inOutDurations: z.object({
     enterDelay: z.number(),

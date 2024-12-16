@@ -21,11 +21,11 @@
     "ts-node": "^10.9.1"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.180",
-    "@remotion/eslint-config": "4.0.180",
-    "@remotion/media-utils": "4.0.180",
-    "@remotion/transitions": "4.0.180",
-    "@remotion/zod-types": "4.0.180",
+    "@remotion/cli": "4.0.235",
+    "@remotion/eslint-config": "4.0.235",
+    "@remotion/media-utils": "4.0.235",
+    "@remotion/transitions": "4.0.235",
+    "@remotion/zod-types": "4.0.235",
     "ass-compiler": "^0.1.4",
     "eslint": "^8.31.0",
     "ffmpeg-filter-compose": "^1.3.0",
@@ -34,7 +34,7 @@
     "prettier": "^2.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.0.0",
-    "remotion": "4.0.180",
+    "remotion": "4.0.235",
     "send": "^0.18.0",
     "typescript": "^4.9.4",
     "zod": "^3.21.4"

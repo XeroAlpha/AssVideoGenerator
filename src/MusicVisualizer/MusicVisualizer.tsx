@@ -40,7 +40,7 @@ const Styles = {
     position: 'absolute',
     bottom: 'calc(40% + 75px)',
     width: '100%',
-    height: '70%',
+    height: '100%',
     padding: '0px 75px',
     display: 'flex',
     flexDirection: 'row',
@@ -195,8 +195,9 @@ function calculateFadeProgress(seconds: number, duration: number, inOutDurations
 
 export const MusicVisualizer: React.FC<InputProps> = (meta) => {
   const frame = useCurrentFrame();
+  const seconds = frame / meta.fps;
   const backgroundUrl = meta.background ? toUrlIfNecessary(meta.background) : null;
-  const fadeProgress = calculateFadeProgress(frame / meta.fps, meta.duration, meta.inOutDurations);
+  const fadeProgress = calculateFadeProgress(seconds, meta.duration, meta.inOutDurations);
   const styles = {
     ...Styles,
     backgroundOverlayDarken: {
@@ -243,7 +244,7 @@ export const MusicVisualizer: React.FC<InputProps> = (meta) => {
           <>
             <AbsoluteFill>
               {meta.backgroundType === 'video' ? (
-                <OffthreadVideo muted src={backgroundUrl} {...styled('background', 'backgroundCover')} />
+                <OffthreadVideo muted src={backgroundUrl} startFrom={meta.backgroundOffset ?? 0} {...styled('background', 'backgroundCover')} />
               ) : (
                 <Img src={backgroundUrl} {...styled('background', 'backgroundCover')} />
               )}
@@ -279,7 +280,7 @@ export const MusicVisualizer: React.FC<InputProps> = (meta) => {
             verticalScale="linear"
             samples={128}
             optimizeFor="speed"
-            freqRange={[0, 15000]}
+            freqRange={[20, 15000]}
             bar={({ volume }) => <div {...styled('bgmBar', { height: `${volume * 100}%` })} />}
             {...styled('bgmBarContainer')}
           />

@@ -114,6 +114,7 @@ async function getRenderOptions(cx: RenderContext, meta: AssMeta) {
       album: meta.templateOptions.album,
       background: videoFile ?? meta.templateOptions.background ?? meta.templateOptions.album,
       backgroundType,
+      backgroundOffset: meta.templateOptions['background.offset'] ? Number(meta.templateOptions['background.offset']) : undefined,
       title: meta.templateOptions.title ?? '',
       artists: meta.templateOptions.artists ?? '',
       lyricTracks: getLyrics(meta, trackNames),
